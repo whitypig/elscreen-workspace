@@ -47,9 +47,10 @@
   :group 'elscreen)
 
 (defvar elscreen-persist-workspaces nil
-  "A list of screens. Each screen contains one or more tabs")
+  "A list of screens. Each screen contains one or more tabs.")
 
-(defvar elscreen-persist-current-ws nil
+;; unnecessary?
+(defvar elscreen-persist-current-workspace nil
   "Current workspace")
 
 (defvar elscreen-persist-current-index 0
@@ -184,9 +185,8 @@
   (elscreen-persist-increment-current-index)
   (message "DEBUG: goto-next-workspace, index=%d" elscreen-persist-current-index)
   (elscreen-persist-kill-all-tabs)
-  (ignore-errors
-    (elscreen-persist-set-data
-     (nth elscreen-persist-current-index elscreen-persist-workspaces))))
+  (elscreen-persist-set-data
+   (nth elscreen-persist-current-index elscreen-persist-workspaces)))
 
 (defun elscreen-persist-goto-previous-workspace ()
   "Switch to the previous workspace"
@@ -195,17 +195,16 @@
   (elscreen-persist-decrement-current-index)
   (message "DEBUG: goto-previous-workspace, index=%d" elscreen-persist-current-index)
   (elscreen-persist-kill-all-tabs)
-  (ignore-errors
-    (elscreen-persist-set-data
-     (nth elscreen-persist-current-index elscreen-persist-workspaces))))
+  (elscreen-persist-set-data
+     (nth elscreen-persist-current-index elscreen-persist-workspaces)))
 
 (defun elscreen-persist-kill-all-tabs ()
   (cl-loop repeat (1- (elscreen-get-number-of-screens))
-           do (elscreen-kill))
-  ;; actually, we cannot kill all the screens,
-  ;; so let's start up with our friend, scratch buffer
-  (message "DEBUG: kill-all-tabs, switching to scratch buffer")
-  (switch-to-buffer (get-buffer-create "*scratch*")))
+           do (elscreen-kill)
+           ;; actually, we cannot kill all the screens,
+           ;; so let's start up with our old friend.
+           finally (switch-to-buffer (get-buffer-create "*screatch*")))
+  (message "DEBUG: kill-all-tabs, must have switched to scratch buffer, buffer=%s" (buffer-name)))
 
 (defun elscreen-persist-increment-current-index ()
   (setq elscreen-persist-current-index
@@ -232,9 +231,50 @@
     (error "elscreen-persist-create-workspace(), index is invalid"))
   )
 
-(defun elscreen-persist-delete-ws ()
-  "Delete current workspace"
-  )
+(defun elscreen-persist-remove-nth (n lst)
+  "Remove Nth element in list LST and return a new list."
+  (append (cl-subseq lst 0 n) (nthcdr (1+ n) lst)))
+
+(defun elscreen-persist-switch-to-nth-workspace (n)
+  (elscreen-persist-set-data (nth n elscreen-persist-workspaces)))
+
+(defun elscreen-persist-delete-workspace ()
+  "Delete current workspace. If there is only one workspace, do nothing."
+  (interactive)
+  (cond
+   ((= 1 (length elscreen-persist-workspaces))
+    (messge "You cannot delete only one workspace!")
+    (sit-for 1))
+   (t
+    ;; either of the two situations below occurs.
+    ;; ws1 ws2 ws3
+    ;;          ^
+    ;;          |
+    ;;        delete this, then make ws2 the current ws
+    ;; in this case, new index will be (1- index)
+    ;;
+    ;; ws1 ws2 ws3
+    ;;      ^
+    ;;      |
+    ;;    delete this, then make ws3 the current ws
+    ;; in this case, index will not change
+    (let ((new-index (if (= elscreen-persist-current-index
+                            (1- (length elscreen-persist-workspaces)))
+                         (1- elscreen-persist-current-index)
+                       elscreen-persist-current-index)))
+      (setq elscreen-persist-workspaces (elscreen-persist-remove-nth
+                                         elscreen-persist-current-index
+                                         elscreen-persist-workspaces))
+      (setq elscreen-persist-current-index new-index)
+      ;; switch to workspace
+      (elscreen-persist-switch-to-nth-workspace elscreen-persist-current-index)))))
+
+(defun elscreen-persist-clear ()
+  "Function for debugging purpose."
+  (interactive)
+  (setq elscreen-persist-workspaces nil
+        elscreen-persist-current-workspace
+        elscreen-persist-current-index 0))
 
 ;;;###autoload
 (define-minor-mode elscreen-persist-mode
