@@ -38,6 +38,7 @@
 
 ;;; Code:
 
+(require 'cl)
 (require 'elscreen)
 (require 'revive)
 
@@ -46,14 +47,16 @@
   :type 'file
   :group 'elscreen)
 
+(defcustom elscreen-persist-default-buffer "*scratch*"
+  "Default buffer to be visited when a new workspace is created."
+  :type 'string
+  :group 'elscreen)
+
+;;; Variables:
 (defvar elscreen-persist-workspaces nil
   "A list of screens. Each screen contains one or more tabs.")
 
-;; unnecessary?
-(defvar elscreen-persist-current-workspace nil
-  "Current workspace")
-
-(defvar elscreen-persist-current-index 0
+(defvar elscreen-persist--current-index 0
   "Index in `elscreen-persist-workspaces'")
 
 ;;;###autoload
@@ -107,18 +110,20 @@
     (cond
      ((not elscreen-persist-workspaces)
       ;; no workspce in workspace list, so start a new workspace
-      (setcdr (last elscreen-persist-workspaces) (list ws))
-      (setq elscreen-persist-current-index 0))
-     ((>= elscreen-persist-current-index (length elscreen-persist-workspaces))
+      (setq elscreen-persist-workspaces (list ws))
+      (setq elscreen-persist--current-index 0))
+     ((>= elscreen-persist--current-index (length elscreen-persist-workspaces))
       ;; another workspace has been just created
       (setcdr (last elscreen-persist-workspaces) (list ws)))
      (t
       ;; update current workspace data
-      (setf (nth elscreen-persist-current-index elscreen-persist-workspaces) ws)))))
+      (setf (nth elscreen-persist--current-index elscreen-persist-workspaces) ws)))))
 
 (defun elscreen-persist-store ()
   "Store the screens, window configurations, nicknames and frame parameters."
   (interactive)
+  ;; update current workspace info
+  (elscreen-persist-update-current-workspace)
   ;; Store the configurations.
   (with-temp-file elscreen-persist-file
     (let ((print-length nil)
@@ -138,15 +143,23 @@
 ;;;###autoload
 (defun elscreen-persist-set-screens (data)
   "Set the screens, window configurations."
+  ;; Note:
+  ;; #'elscreen-kill restores window-configuration with its own
+  ;; #'elscreen-apply-window-configuration, so let them first play a
+  ;; role. After that, we do our own job. Otherwise, restored window
+  ;; configuration will be modified again by elscreen.
+  ;; First, create enough number of screens
   (dolist (screen-to-window-configuration data)
     (while (not (elscreen-screen-live-p (car screen-to-window-configuration)))
-      (elscreen-create))
-    (elscreen-goto (car screen-to-window-configuration))
-    (restore-window-configuration (cdr screen-to-window-configuration)))
-  ;; Kill unnecessary screens.
+      (elscreen-create)))
+  ;; then kill uncecessary screens
   (dolist (screen (elscreen-get-screen-list))
     (unless (assq screen data)
-      (elscreen-kill screen))))
+      (elscreen-kill screen)))
+  ;; finally, restore window configurtion
+  (dolist (screen-to-window-configuration data)
+    (elscreen-goto (car screen-to-window-configuration))
+    (restore-window-configuration (cdr screen-to-window-configuration))))
 
 ;;;###autoload
 (defun elscreen-persist-set-nicknames (data)
@@ -173,61 +186,90 @@
                   (insert-file-contents elscreen-persist-file)
                   (buffer-string))))
     ;; for now, use 0 as default index
-    (setq elscreen-persist-current-index 0)
+    (setq elscreen-persist--current-index 0)
     ;; then, restore
     (elscreen-persist-set-data (car elscreen-persist-workspaces))))
 
+(defun elscreen-persist-workspace-single-p ()
+  (= 1 (length elscreen-persist-workspaces)))
+
+(defun elscreen-persist-update-workspace-index (delta)
+  (setq elscreen-persist--current-index
+        (% (+ (+ delta elscreen-persist--current-index)
+              (length elscreen-persist-workspaces))
+           (length elscreen-persist-workspaces))))
+
+(defun elscreen-persist-switch-workspace-by-delta (delta)
+  "Switch workspace to another one which is DELTA distance away."
+  (assert (not (zerop delta)) t "switching workspace, delta cannot be zero")
+  ;; (message "DEBUG: goto %s workspace, current-buffer=%s"
+  ;;          (if (> delta 0) "next" "previsou") (buffer-name))
+  ;; save current workspace info into memory
+  (elscreen-persist-update-current-workspace)
+  ;; killing unnecessary tabs is executed in elscreen-persist-set-data.
+  ;; (elscreen-persist-kill-all-tabs)
+
+  ;; debug
+  ;; (cl-loop for winconf in (assoc 'screen-to-window-configuration-alist
+  ;;                                (nth elscreen-persist--current-index
+  ;;                                     elscreen-persist-workspaces))
+  ;;          initially do (message "DEBUG: before switching")
+  ;;          do (cl-loop for screen in winconf
+  ;;                      do (message "DEBUG: screen=%s" (prin1-to-string screen))))
+  ;; update index
+  (elscreen-persist-update-workspace-index delta)
+  (elscreen-persist-set-data
+   (nth elscreen-persist--current-index elscreen-persist-workspaces))
+  (elscreen-persist-show-workspace-info))
+
 (defun elscreen-persist-goto-next-workspace ()
   "Switch to the next workspace."
-  (interactive)
-  (message "DEBUG: got-next, current-buffer=%s" (buffer-name))
-  (elscreen-persist-update-current-workspace)
-  (elscreen-persist-increment-current-index)
-  (message "DEBUG: goto-next-workspace, index=%d" elscreen-persist-current-index)
-  (elscreen-persist-kill-all-tabs)
-  (elscreen-persist-set-data
-   (nth elscreen-persist-current-index elscreen-persist-workspaces)))
+  (interactive);
+  ;; (message "DEBUG: goto next ws from index=%d" elscreen-persist--current-index)
+  (if (elscreen-persist-workspace-single-p)
+      (elscreen-message "You should have at least two groups of screens to move around!")
+    (elscreen-persist-switch-workspace-by-delta 1))
+  ;; (message "DEBUG: current workspace, index=%d" elscreen-persist--current-index)
+  )
 
 (defun elscreen-persist-goto-previous-workspace ()
   "Switch to the previous workspace"
   (interactive)
-  (elscreen-persist-update-current-workspace)
-  (elscreen-persist-decrement-current-index)
-  (message "DEBUG: goto-previous-workspace, index=%d" elscreen-persist-current-index)
-  (elscreen-persist-kill-all-tabs)
-  (elscreen-persist-set-data
-     (nth elscreen-persist-current-index elscreen-persist-workspaces)))
+  ;; (message "DEBUG: goto previous ws from index=%d" elscreen-persist--current-index)
+  (if (elscreen-persist-workspace-single-p)
+      (elscreen-message "You should have at least two groups of screens to move around!")
+    (elscreen-persist-switch-workspace-by-delta -1))
+  ;; (message "DEBUG: current workspace, index=%d" elscreen-persist--current-index)
+  )
 
 (defun elscreen-persist-kill-all-tabs ()
+  "Kill all the screens"
   (cl-loop repeat (1- (elscreen-get-number-of-screens))
-           do (elscreen-kill)
-           ;; actually, we cannot kill all the screens,
-           ;; so let's start up with our old friend.
-           finally (switch-to-buffer (get-buffer-create "*screatch*")))
-  (message "DEBUG: kill-all-tabs, must have switched to scratch buffer, buffer=%s" (buffer-name)))
+           ;; actually, we cannot kill all the screens
+           do (elscreen-kill))
+  (assert (and (= 1 (elscreen-get-number-of-screens)))))
 
-(defun elscreen-persist-increment-current-index ()
-  (setq elscreen-persist-current-index
-        (% (1+ elscreen-persist-current-index) (length elscreen-persist-workspaces))))
+(defun elscreen-persist-show-workspace-info ()
+  (elscreen-message (format "workspace %d/%d"
+                            elscreen-persist--current-index
+                            (1- (length elscreen-persist-workspaces)))))
 
-(defun elscreen-persist-decrement-current-index ()
-  (setq elscreen-persist-current-index
-        (% (+ (1- elscreen-persist-current-index) (length elscreen-persist-workspaces))
-           (length elscreen-persist-workspaces))))
-
-(defun elscreen-persist-create-workspace ()
+(defun elscreen-persist-open-workspace ()
   "Create a new workspace"
   (interactive)
-  (message "DEBUG: creating new workspace")
+  ;; (message "DEBUG: opening a new workspace")
   ;; save current workspace
   (elscreen-persist-update-current-workspace)
-  ;; for safety first, also save to file
+  ;; safety first, let us save workspaces to file
   (elscreen-persist-store)
   ;; then, kill all the screens in the current workspace
   (elscreen-persist-kill-all-tabs)
-  (setq elscreen-persist-current-index (length elscreen-persist-workspaces))
+  ;; move to scratch buffer as if we are starting a new session
+  (switch-to-buffer (get-buffer-create elscreen-persist-default-buffer))
+  (setq elscreen-persist--current-index (length elscreen-persist-workspaces))
   (elscreen-persist-update-current-workspace)
-  (when (>= elscreen-persist-current-index (length elscreen-persist-workspaces))
+  (elscreen-persist-show-workspace-info)
+  (when (>= elscreen-persist--current-index (length elscreen-persist-workspaces))
     (error "elscreen-persist-create-workspace(), index is invalid"))
   )
 
@@ -236,15 +278,15 @@
   (append (cl-subseq lst 0 n) (nthcdr (1+ n) lst)))
 
 (defun elscreen-persist-switch-to-nth-workspace (n)
-  (elscreen-persist-set-data (nth n elscreen-persist-workspaces)))
+  (elscreen-persist-set-data (nth n elscreen-persist-workspaces))
+  (elscreen-persist-show-workspace-info))
 
-(defun elscreen-persist-delete-workspace ()
+(defun elscreen-persist-kill-workspace ()
   "Delete current workspace. If there is only one workspace, do nothing."
   (interactive)
   (cond
-   ((= 1 (length elscreen-persist-workspaces))
-    (messge "You cannot delete only one workspace!")
-    (sit-for 1))
+   ((elscreen-persist-workspace-single-p)
+    (elscreen-message "You cannot kill only one workspace!"))
    (t
     ;; either of the two situations below occurs.
     ;; ws1 ws2 ws3
@@ -254,27 +296,31 @@
     ;; in this case, new index will be (1- index)
     ;;
     ;; ws1 ws2 ws3
-    ;;      ^
-    ;;      |
-    ;;    delete this, then make ws3 the current ws
-    ;; in this case, index will not change
-    (let ((new-index (if (= elscreen-persist-current-index
-                            (1- (length elscreen-persist-workspaces)))
-                         (1- elscreen-persist-current-index)
-                       elscreen-persist-current-index)))
-      (setq elscreen-persist-workspaces (elscreen-persist-remove-nth
-                                         elscreen-persist-current-index
-                                         elscreen-persist-workspaces))
-      (setq elscreen-persist-current-index new-index)
-      ;; switch to workspace
-      (elscreen-persist-switch-to-nth-workspace elscreen-persist-current-index)))))
+    ;;  ^   ^
+    ;;  |   |
+    ;;  delete one of these, then make ws3 the current ws when ws2 is
+    ;;  removed, and ws1 when ws2 is removed.
+    ;; in this case, index will not change.
+    ;; delete current workspace
+    ;; (message "DEBUG: killing workspace %d" elscreen-persist--current-index)
+    (setq elscreen-persist-workspaces (elscreen-persist-remove-nth
+                                       elscreen-persist--current-index
+                                       elscreen-persist-workspaces))
+    (when (= elscreen-persist--current-index
+             (length elscreen-persist-workspaces))
+      ;; deleted workspace was the last one in the list
+      (cl-decf elscreen-persist--current-index))
+    ;; switch to workspace
+    (elscreen-persist-switch-to-nth-workspace elscreen-persist--current-index)
+    ;; (message "DEBUG: current workspace is %d" elscreen-persist--current-index)
+    )))
 
 (defun elscreen-persist-clear ()
   "Function for debugging purpose."
   (interactive)
   (setq elscreen-persist-workspaces nil
-        elscreen-persist-current-workspace
-        elscreen-persist-current-index 0))
+        elscreen-persist-current-workspace nil
+        elscreen-persist--current-index 0))
 
 ;;;###autoload
 (define-minor-mode elscreen-persist-mode
