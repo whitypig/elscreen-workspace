@@ -108,7 +108,7 @@
   "Update info about current workspace in `elscreen-persist-workspaces'."
   (let ((ws (elscreen-persist-get-data)))
     (cond
-     ((not elscreen-persist-workspaces)
+     ((null elscreen-persist-workspaces)
       ;; no workspce in workspace list, so start a new workspace
       (setq elscreen-persist-workspaces (list ws))
       (setq elscreen-persist--current-index 0))
@@ -220,7 +220,7 @@
   (elscreen-persist-update-workspace-index delta)
   (elscreen-persist-set-data
    (nth elscreen-persist--current-index elscreen-persist-workspaces))
-  (elscreen-persist-show-workspace-info))
+  (elscreen-notify-screen-modification 'force-immediately))
 
 (defun elscreen-persist-goto-next-workspace ()
   "Switch to the next workspace."
@@ -268,7 +268,7 @@
   (switch-to-buffer (get-buffer-create elscreen-persist-default-buffer))
   (setq elscreen-persist--current-index (length elscreen-persist-workspaces))
   (elscreen-persist-update-current-workspace)
-  (elscreen-persist-show-workspace-info)
+  (elscreen-notify-screen-modification 'force-immediately)
   (when (>= elscreen-persist--current-index (length elscreen-persist-workspaces))
     (error "elscreen-persist-create-workspace(), index is invalid"))
   )
@@ -279,7 +279,34 @@
 
 (defun elscreen-persist-switch-to-nth-workspace (n)
   (elscreen-persist-set-data (nth n elscreen-persist-workspaces))
-  (elscreen-persist-show-workspace-info))
+  (elscreen-notify-screen-modification 'force-immediately))
+
+;; from elscreen.el
+;; (defun elscreen-mode-line-update ()
+;;   (when (elscreen-screen-modified-p 'elscreen-mode-line-update)
+;;     (setq elscreen-mode-line-string
+;;           (format "[%d]" (elscreen-get-current-screen)))
+;;     (force-mode-line-update)))
+
+(defun elscreen-persist-elscreen-mode-line-update-override-hook-func ()
+  "Function to override the behavior of the original `elscreen-mode-line-update'.
+
+Just add the index of the current workspace to the original string."
+  (when (elscreen-screen-modified-p 'elscreen-mode-line-update)
+    (setq elscreen-mode-line-string
+          (if elscreen-persist-mode
+              ;; format is [workspace-index:screen-index]
+              (format "[%d:%d]" elscreen-persist--current-index (elscreen-get-current-screen))
+            (format "[%d]" (elscreen-get-current-screen))))
+    (force-mode-line-update)))
+
+(advice-add 'elscreen-mode-line-update
+            :override
+            #'elscreen-persist-elscreen-mode-line-update-override-hook-func)
+
+;; to remove advice
+;; (advice-remove 'elscreen-mode-line-update
+;;                #'elscreen-persist-elscreen-mode-line-update-override-hook-func)
 
 (defun elscreen-persist-kill-workspace ()
   "Delete current workspace. If there is only one workspace, do nothing."
