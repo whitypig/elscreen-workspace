@@ -78,7 +78,10 @@
     ;; - The last element is a current screen configuration.
     (dolist (screen (sort (elscreen-get-screen-list) '<))
       (elscreen-goto screen)
-      (let ((screen-to-window-configuration (list (cons screen (current-window-configuration-printable)))))
+      (let ((screen-to-window-configuration
+             (list (cons
+                    screen
+                    (current-window-configuration-printable)))))
         (setq screen-to-window-configuration-alist
               (if (eq screen current-screen)
                   (append screen-to-window-configuration-alist screen-to-window-configuration)
@@ -337,7 +340,7 @@ Just add the index of the current workspace to the original string."
              (length elscreen-persist-workspaces))
       ;; deleted workspace was the last one in the list
       (cl-decf elscreen-persist--current-index))
-    ;; switch to workspace
+    ;; switch to the adjacent workspace
     (elscreen-persist-switch-to-nth-workspace elscreen-persist--current-index)
     ;; (message "DEBUG: current workspace is %d" elscreen-persist--current-index)
     )))
@@ -346,7 +349,6 @@ Just add the index of the current workspace to the original string."
   "Function for debugging purpose."
   (interactive)
   (setq elscreen-persist-workspaces nil
-        elscreen-persist-current-workspace nil
         elscreen-persist--current-index 0))
 
 ;;;###autoload
