@@ -152,17 +152,25 @@
   ;; role. After that, we do our own job. Otherwise, restored window
   ;; configuration will be modified again by elscreen.
   ;; First, create enough number of screens
+  ;; (message "DEBUG: creating screens")
   (dolist (screen-to-window-configuration data)
     (while (not (elscreen-screen-live-p (car screen-to-window-configuration)))
       (elscreen-create)))
   ;; then kill uncecessary screens
+  ;; (message "DEBUG: killing screens")
   (dolist (screen (elscreen-get-screen-list))
     (unless (assq screen data)
-      (elscreen-kill screen)))
+      (elscreen-kill-internal screen)))
   ;; finally, restore window configurtion
+  ;; (message "DEBUG: restoring screens")
   (dolist (screen-to-window-configuration data)
-    (elscreen-goto (car screen-to-window-configuration))
-    (restore-window-configuration (cdr screen-to-window-configuration))))
+    ;; (message "DEBUG: goto %s" (prin1-to-string screen-to-window-configuration))
+    ;; for some reason or other, we get to minibuffer
+    (unless (window-minibuffer-p)
+      (elscreen-goto (car screen-to-window-configuration))
+      (message "DEBUG: then, restoring, window=%s, buffer=%s" (selected-window) (buffer-name (window-buffer)))
+      ;; (message "DEBUG: restoring conf=%s" (cdr screen-to-window-configuration))
+      (restore-window-configuration (cdr screen-to-window-configuration)))))
 
 ;;;###autoload
 (defun elscreen-persist-set-nicknames (data)
@@ -176,7 +184,9 @@
 (defun elscreen-persist-set-data (data)
   "Set the frame parameters, screens, window configurations and nicknames."
   (elscreen-persist-set-frame-params (car (assoc-default 'frame-parameters data)))
+  ;; (message "DEBUG: calling elsper-set-screens")
   (elscreen-persist-set-screens (car (assoc-default 'screen-to-window-configuration-alist data)))
+  ;; (message "DEBUG: got back from elsper-set-screens")
   (elscreen-persist-set-nicknames (car (assoc-default 'screen-to-nickname-alist data))))
 
 ;;;###autoload
@@ -281,8 +291,15 @@
   (append (cl-subseq lst 0 n) (nthcdr (1+ n) lst)))
 
 (defun elscreen-persist-switch-to-nth-workspace (n)
-  (elscreen-persist-set-data (nth n elscreen-persist-workspaces))
-  (elscreen-notify-screen-modification 'force-immediately))
+  (cond
+   ((window-minibuffer-p)
+    (error "elscreen-persist, current window is minbuffer!"))
+   ((not (= n elscreen-persist--current-index))
+    (elscreen-persist-set-data (nth n elscreen-persist-workspaces))
+    (setq elscreen-persist--current-index n)
+    (elscreen-notify-screen-modification 'force-immediately))
+   (t
+    nil)))
 
 ;; from elscreen.el
 ;; (defun elscreen-mode-line-update ()
@@ -345,6 +362,61 @@ Just add the index of the current workspace to the original string."
     ;; (message "DEBUG: current workspace is %d" elscreen-persist--current-index)
     )))
 
+(defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
+
+(defun elscreen-persist-collect-helm-candidates ()
+  (cl-loop initially (elscreen-persist-update-current-workspace)
+           for ws in (mapcar
+                      (lambda (e) (nth 1 e))
+                      (mapcar (lambda (elt)
+                                ;; elt represents each workspace
+                                ;; 1th element is window cofiguration
+                                (nth 1 elt))
+                              elscreen-persist-workspaces))
+           for ix from 0
+           collect (concat
+                    (format "%d: " ix)
+                    (mapconcat
+                     #'identity
+                     (remove-duplicates
+                      (mapcan (lambda (lst)
+                                ;; lst correspond to one screen in this ws
+                                (mapcar (lambda (blist)
+                                          ;; 1th elt is buffer name
+                                          (nth 1 blist))
+                                        ;; 4th elt is a list of buffers
+                                        (nth 4 lst)))
+                              (sort (copy-sequence ws)
+                                    (lambda (a b)
+                                      (< (car a) (car b)))))
+                      :test #'string=)
+                     " | "))))
+
+(defun elscreen-persist-switch-workspace-through-helm ()
+  "Switch workspace through helm interface."
+  (interactive)
+  (let* ((candidates (elscreen-persist-collect-helm-candidates))
+         (choice (save-selected-window
+                   (helm
+                    :buffer elscreen-persist-helm-buffer-name
+                    :sources (helm-build-sync-source "helm-elscreen-persist-workspaces"
+                               :candidates candidates
+                               :migemo t
+                               :volatile t)
+                    :preselect (format "^%d:" elscreen-persist--current-index)))))
+    ;; (when helm-alive-p
+    ;;   (message "DEBUG: helm is alive")
+    ;;   (helm-keyboard-quit))
+    ;; (when (window-minibuffer-p (selected-window))
+    ;;   (delete-window (selected-window)))
+    (when (stringp choice)
+      (elscreen-persist-switch-to-nth-workspace
+       (string-to-int (substring-no-properties choice
+                                               0
+                                               ;; 0: foo | bar
+                                               ;; 15: foo | bar
+                                               (string-match ":" choice)))))))
+
 (defun elscreen-persist-clear ()
   "Function for debugging purpose."
   (interactive)
@@ -365,6 +437,8 @@ the mode if ARG is omitted or nil."
         (add-hook 'window-setup-hook #'elscreen-persist-restore t))
     (remove-hook 'kill-emacs-hook #'elscreen-persist-store)
     (remove-hook 'window-setup-hook #'elscreen-persist-restore)))
+
+
 
 (provide 'elscreen-persist)
 ;;; elscreen-persist.el ends here
