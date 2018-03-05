@@ -412,7 +412,7 @@ Just add the index of the current workspace to the original string."
     ;;   (delete-window (selected-window)))
     (when (stringp choice)
       (elscreen-persist-switch-to-nth-workspace
-       (string-to-int (substring-no-properties choice
+       (string-to-number (substring-no-properties choice
                                                0
                                                ;; 0: foo | bar
                                                ;; 15: foo | bar
