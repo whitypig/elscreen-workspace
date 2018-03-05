@@ -165,10 +165,13 @@
   ;; (message "DEBUG: restoring screens")
   (dolist (screen-to-window-configuration data)
     ;; (message "DEBUG: goto %s" (prin1-to-string screen-to-window-configuration))
-    ;; for some reason or other, we get to minibuffer
     (unless (window-minibuffer-p)
+      ;; Note: For some reason or other, sometimes we somehow get to
+      ;; minibuffer window, and try to delete other window to restore
+      ;; window configuration. This raises unpleasant error. So, make
+      ;; sure we are NOT in minibuffer widow. 
       (elscreen-goto (car screen-to-window-configuration))
-      (message "DEBUG: then, restoring, window=%s, buffer=%s" (selected-window) (buffer-name (window-buffer)))
+      ;; (message "DEBUG: then, restoring, window=%s, buffer=%s" (selected-window) (buffer-name (window-buffer)))
       ;; (message "DEBUG: restoring conf=%s" (cdr screen-to-window-configuration))
       (restore-window-configuration (cdr screen-to-window-configuration)))))
 
