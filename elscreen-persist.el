@@ -367,9 +367,8 @@ Just add the index of the current workspace to the original string."
 
 (defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
 
-(defun elscreen-persist-collect-helm-candidates ()
-  (cl-loop initially (elscreen-persist-update-current-workspace)
-           for ws in (mapcar
+(defun elscreen-persist-get-helm-candidates ()
+  (cl-loop for ws in (mapcar
                       (lambda (e) (nth 1 e))
                       (mapcar (lambda (elt)
                                 ;; elt represents each workspace
@@ -377,34 +376,38 @@ Just add the index of the current workspace to the original string."
                                 (nth 1 elt))
                               elscreen-persist-workspaces))
            for ix from 0
-           collect (concat
-                    (format "%d: " ix)
-                    (mapconcat
-                     #'identity
-                     (remove-duplicates
-                      (mapcan (lambda (lst)
-                                ;; lst correspond to one screen in this ws
-                                (mapcar (lambda (blist)
-                                          ;; 1th elt is buffer name
-                                          (nth 1 blist))
-                                        ;; 4th elt is a list of buffers
-                                        (nth 4 lst)))
-                              (sort (copy-sequence ws)
-                                    (lambda (a b)
-                                      (< (car a) (car b)))))
-                      :test #'string=
-                      :from-end t)
-                     " | "))))
+           collect (cons
+                    ;; string shown in helm buffer
+                    (concat
+                     (format "%d: " ix)
+                     (mapconcat
+                      #'identity
+                      (remove-duplicates
+                       (mapcan (lambda (lst)
+                                 ;; lst correspond to one screen in this ws
+                                 (mapcar (lambda (blist)
+                                           ;; 1th elt is buffer name
+                                           (nth 1 blist))
+                                         ;; 4th elt is a list of buffers
+                                         (nth 4 lst)))
+                               (sort (copy-sequence ws)
+                                     (lambda (a b)
+                                       (< (car a) (car b)))))
+                       :test #'string=
+                       :from-end t)
+                      " | "))
+                    ;; value returned from helm
+                    ix)))
 
 (defun elscreen-persist-switch-workspace-through-helm ()
   "Switch workspace through helm interface."
   (interactive)
-  (let* ((candidates (elscreen-persist-collect-helm-candidates))
-         (choice (save-selected-window
+  (let* ((choice (save-selected-window
                    (helm
                     :buffer elscreen-persist-helm-buffer-name
                     :sources (helm-build-sync-source "helm-elscreen-persist-workspaces"
-                               :candidates candidates
+                               :init #'elscreen-persist-update-current-workspace
+                               :candidates (elscreen-persist-get-helm-candidates)
                                :migemo t
                                :volatile t)
                     :preselect (format "^%d:" elscreen-persist--current-index)))))
@@ -413,13 +416,8 @@ Just add the index of the current workspace to the original string."
     ;;   (helm-keyboard-quit))
     ;; (when (window-minibuffer-p (selected-window))
     ;;   (delete-window (selected-window)))
-    (when (stringp choice)
-      (elscreen-persist-switch-to-nth-workspace
-       (string-to-number (substring-no-properties choice
-                                               0
-                                               ;; 0: foo | bar
-                                               ;; 15: foo | bar
-                                               (string-match ":" choice)))))))
+    (when (numberp choice)
+      (elscreen-persist-switch-to-nth-workspace choice))))
 
 (defun elscreen-persist-clear ()
   "Function for debugging purpose."
