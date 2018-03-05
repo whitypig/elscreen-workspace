@@ -389,7 +389,8 @@ Just add the index of the current workspace to the original string."
                               (sort (copy-sequence ws)
                                     (lambda (a b)
                                       (< (car a) (car b)))))
-                      :test #'string=)
+                      :test #'string=
+                      :from-end t)
                      " | "))))
 
 (defun elscreen-persist-switch-workspace-through-helm ()
