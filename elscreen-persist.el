@@ -169,7 +169,7 @@
       ;; Note: For some reason or other, sometimes we somehow get to
       ;; minibuffer window, and try to delete other window to restore
       ;; window configuration. This raises unpleasant error. So, make
-      ;; sure we are NOT in minibuffer widow. 
+      ;; sure we are NOT in minibuffer widow.
       (elscreen-goto (car screen-to-window-configuration))
       ;; (message "DEBUG: then, restoring, window=%s, buffer=%s" (selected-window) (buffer-name (window-buffer)))
       ;; (message "DEBUG: restoring conf=%s" (cdr screen-to-window-configuration))
