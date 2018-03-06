@@ -306,7 +306,12 @@
                       (cl-remove-if-not
                        (lambda (screen-to-name)
                          (cl-find-if
-                          (lambda (s) (string-match-p input s))
+                          (lambda (s)
+                            (or (string-match-p input s)
+                                (and (featurep 'helm)
+                                     helm-migemo-mode
+                                     (fboundp 'helm-mm-migemo-string-match)
+                                     (helm-mm-migemo-string-match input s))))
                           ;; if there is more than one buffer in one
                           ;; screen, those names are concatenated with
                           ;; separator being ":".
@@ -317,8 +322,8 @@
                         (< (car scr1) (car scr2))))))
         ;; when there is more than one screen matching INPUT, let the
         ;; smallest screen number be our destination.
-        (message "DEBUG: screen=%s" screen)
-        (elscreen-goto (caar screen))))
+        ;; (message "DEBUG: screen=%s" screen)
+        (and screen (elscreen-goto (caar screen)))))
     (elscreen-notify-screen-modification 'force-immediately))
    (t
     nil)))
