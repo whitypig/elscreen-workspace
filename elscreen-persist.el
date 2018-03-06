@@ -38,7 +38,7 @@
 
 ;;; Code:
 
-(require 'cl)
+(require 'cl-lib)
 (require 'elscreen)
 (require 'revive)
 
@@ -407,16 +407,16 @@ Just add the index of the current workspace to the original string."
                      (mapconcat
                       #'identity
                       (cl-remove-duplicates
-                       (mapcan (lambda (lst)
-                                 ;; lst correspond to one screen in this ws
-                                 (mapcar (lambda (blist)
-                                           ;; 1th elt is buffer name
-                                           (nth 1 blist))
-                                         ;; 4th elt is a list of buffers
-                                         (nth 4 lst)))
-                               (sort (copy-sequence ws)
-                                     (lambda (a b)
-                                       (< (car a) (car b)))))
+                       (cl-mapcan (lambda (lst)
+                                    ;; lst correspond to one screen in this ws
+                                    (mapcar (lambda (blist)
+                                              ;; 1th elt is buffer name
+                                              (nth 1 blist))
+                                            ;; 4th elt is a list of buffers
+                                            (nth 4 lst)))
+                                  (sort (copy-sequence ws)
+                                        (lambda (a b)
+                                          (< (car a) (car b)))))
                        :test #'string=
                        :from-end t)
                       " | "))
