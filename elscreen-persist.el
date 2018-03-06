@@ -375,19 +375,25 @@ Just add the index of the current workspace to the original string."
     ;;  delete one of these, then make ws3 the current ws when ws2 is
     ;;  removed, and ws1 when ws2 is removed.
     ;; in this case, index will not change.
-    ;; delete current workspace
-    ;; (message "DEBUG: killing workspace %d" elscreen-persist--current-index)
-    (setq elscreen-persist-workspaces (elscreen-persist-remove-nth
-                                       elscreen-persist--current-index
-                                       elscreen-persist-workspaces))
-    (when (= elscreen-persist--current-index
-             (length elscreen-persist-workspaces))
-      ;; deleted workspace was the last one in the list
-      (cl-decf elscreen-persist--current-index))
-    ;; switch to the adjacent workspace
-    (elscreen-persist-switch-to-nth-workspace elscreen-persist--current-index)
-    ;; (message "DEBUG: current workspace is %d" elscreen-persist--current-index)
-    )))
+
+    (let ((target-index elscreen-persist--current-index)
+          (new-index (if (= elscreen-persist--current-index
+                            (1- (length elscreen-persist-workspaces)))
+                         (1- elscreen-persist--current-index)
+                       (1+ elscreen-persist--current-index))))
+      ;; first, switch to the adjacent workspace before actually deleting workspace.
+      (message "DEBUG: len(workspaces)=%d" (length elscreen-persist-workspaces))
+      (message "DEBUG: current workspace is %d" elscreen-persist--current-index)
+      (message "DEBUG: switching to workspace, index=%d" new-index)
+      (elscreen-persist-switch-to-nth-workspace new-index)
+      ;; then, delete target workspace
+      (message "DEBUG: deleting workspace index=%d" target-index)
+      (setq elscreen-persist-workspaces (elscreen-persist-remove-nth
+                                         target-index
+                                         elscreen-persist-workspaces))
+      ;; update current index
+      (setq elscreen-persist--current-index new-index)
+      (message "DEBUG: len(workspaces)=%d" (length elscreen-persist-workspaces))))))
 
 (defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
 
