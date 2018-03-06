@@ -293,13 +293,29 @@
   "Remove Nth element in list LST and return a new list."
   (append (cl-subseq lst 0 n) (nthcdr (1+ n) lst)))
 
-(defun elscreen-persist-switch-to-nth-workspace (n)
+(defun elscreen-persist-switch-to-nth-workspace (n &optional input)
   (cond
    ((window-minibuffer-p)
     (error "elscreen-persist, current window is minbuffer!"))
    ((not (= n elscreen-persist--current-index))
     (elscreen-persist-set-data (nth n elscreen-persist-workspaces))
     (setq elscreen-persist--current-index n)
+    (when (and (stringp input) (> (length input) 2))
+      ;; goto screen which has a buffer whose name matches INPUT
+      (let* ((screen (cl-remove-if-not
+                      (lambda (screen-to-name)
+                        (cl-find-if
+                         (lambda (s) (string-match-p input s))
+                         ;; if there is more than one buffer in one
+                         ;; screen, those names are concatenated with
+                         ;; separator being ":".
+                         (split-string (cdr screen-to-name) ":" t)))
+                      ;; each elt is like (screen-number . buffer-names)
+                      (elscreen-get-screen-to-name-alist))))
+        (when (= 1 (length screen))
+          ;; when we can narrow down screens in this workspace to one
+          ;; by input, goto that screen
+          (elscreen-goto (caar screen)))))
     (elscreen-notify-screen-modification 'force-immediately))
    (t
     nil)))
@@ -382,7 +398,7 @@ Just add the index of the current workspace to the original string."
                      (format "%d: " ix)
                      (mapconcat
                       #'identity
-                      (remove-duplicates
+                      (cl-remove-duplicates
                        (mapcan (lambda (lst)
                                  ;; lst correspond to one screen in this ws
                                  (mapcar (lambda (blist)
@@ -416,8 +432,10 @@ Just add the index of the current workspace to the original string."
     ;;   (helm-keyboard-quit))
     ;; (when (window-minibuffer-p (selected-window))
     ;;   (delete-window (selected-window)))
+    (when (stringp helm-input)
+      (message "DEBUG: helm-input=%s" helm-input))
     (when (numberp choice)
-      (elscreen-persist-switch-to-nth-workspace choice))))
+      (elscreen-persist-switch-to-nth-workspace choice helm-input))))
 
 (defun elscreen-persist-clear ()
   "Function for debugging purpose."
