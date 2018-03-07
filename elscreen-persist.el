@@ -293,6 +293,14 @@
   "Remove Nth element in list LST and return a new list."
   (append (cl-subseq lst 0 n) (nthcdr (1+ n) lst)))
 
+(defun elscreen-persist-helm-mm-migemo-string-match-p (input str)
+  "Do `string-match-p' with the help of `helm-mm-migemo-get-pattern'."
+  (cl-loop with pattern = (helm-mm-3-get-patterns-internal input)
+           for re in (mapcar (lambda (elt)
+                               (helm-mm-migemo-get-pattern (cdr elt)))
+                             pattern)
+           always (string-match-p re str)))
+
 (defun elscreen-persist-switch-to-nth-workspace (n &optional input)
   (cond
    ((window-minibuffer-p)
@@ -312,8 +320,9 @@
                             (or (string-match-p input s)
                                 (and (featurep 'helm)
                                      helm-migemo-mode
-                                     (fboundp 'helm-mm-migemo-string-match)
-                                     (helm-mm-migemo-string-match input s))))
+                                     (fboundp 'helm-mm-migemo-get-pattern)
+                                     (elscreen-persist-helm-mm-migemo-string-match-p
+                                      input s))))
                           ;; if there is more than one buffer in one
                           ;; screen, those names are concatenated with
                           ;; separator being ":".
@@ -403,7 +412,8 @@ Just add the index of the current workspace to the original string."
 (defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
 
 (defun elscreen-persist-get-helm-candidates ()
-  (cl-loop for ws in (mapcar
+  (cl-loop initially (elscreen-persist-update-current-workspace)
+           for ws in (mapcar
                       (lambda (e) (nth 1 e))
                       (mapcar (lambda (elt)
                                 ;; elt represents each workspace
@@ -412,26 +422,31 @@ Just add the index of the current workspace to the original string."
                               elscreen-persist-workspaces))
            for ix from 0
            collect (cons
-                    ;; string shown in helm buffer
                     (concat
                      (format "%d: " ix)
                      (mapconcat
                       #'identity
-                      (cl-remove-duplicates
-                       (cl-mapcan (lambda (lst)
-                                    ;; lst correspond to one screen in this ws
-                                    (mapcar (lambda (blist)
-                                              ;; 1th elt is buffer name
-                                              (nth 1 blist))
-                                            ;; 4th elt is a list of buffers
-                                            (nth 4 lst)))
-                                  (sort (copy-sequence ws)
-                                        (lambda (a b)
-                                          (< (car a) (car b)))))
-                       :test #'string=
-                       :from-end t)
+                      (mapcar (lambda (lst)
+                                ;; lst correspond to one screen in this ws
+                                (mapconcat
+                                 ;; "name1 + name2" if there is more
+                                 ;; than one buffer in one screen
+                                 #'identity
+                                 (cl-remove-duplicates
+                                  ;; remove same names in one screen
+                                  (mapcar (lambda (blist)
+                                            ;; 1th elt is buffer name
+                                            (nth 1 blist))
+                                          ;; 4th elt is a list of buffers
+                                          (nth 4 lst))
+                                  :test #'string=
+                                  :from-end t)
+                                 " + "))
+                              (sort (copy-sequence ws)
+                                    ;; sort by screen-number
+                                    (lambda (a b)
+                                      (< (car a) (car b)))))
                       " | "))
-                    ;; value returned from helm
                     ix)))
 
 (defun elscreen-persist-switch-workspace-through-helm ()
