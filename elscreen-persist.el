@@ -56,6 +56,9 @@
 (defvar elscreen-persist--workspaces nil
   "A list of screens. Each screen contains one or more tabs.")
 
+(defvar elscreen-persist--workspace-names nil
+  "A list of workspace names")
+
 (defvar elscreen-persist--current-index 0
   "Index in `elscreen-persist--workspaces'")
 
@@ -117,7 +120,9 @@
       (setq elscreen-persist--current-index 0))
      ((>= elscreen-persist--current-index (length elscreen-persist--workspaces))
       ;; another workspace has been just created
-      (setcdr (last elscreen-persist--workspaces) (list ws)))
+      (setcdr (last elscreen-persist--workspaces) (list ws))
+      ;; use empty string as default name
+      (setcdr (last elscreen-persist--workspace-names) (list "")))
      (t
       ;; update current workspace data
       (setf (nth elscreen-persist--current-index elscreen-persist--workspaces) ws)))))
@@ -346,25 +351,34 @@
 ;;           (format "[%d]" (elscreen-get-current-screen)))
 ;;     (force-mode-line-update)))
 
-(defun elscreen-persist-elscreen-mode-line-update-override-hook-func ()
-  "Function to override the behavior of the original `elscreen-mode-line-update'.
+(defun elscreen-persist-get-workspace-string ()
+  (cond
+   (elscreen-persist-mode
+    (let ((name (elscreen-persist-get-workspace-name)))
+      (if (and (stringp name) (> (length name) 0))
+          (format "[%s:%d]" name (elscreen-get-current-screen))
+        (format "[%d:%d]" elscreen-persist--current-index (elscreen-get-current-screen)))))
+   (t
+    (format "[%d:%d]" elscreen-persist--current-index (elscreen-get-current-screen)))))
+
+(defun elscreen-persist-elscreen-mode-line-update-override-ad-func ()
+  "Advising function to override the behavior of the original `elscreen-mode-line-update'.
 
 Just add the index of the current workspace to the original string."
   (when (elscreen-screen-modified-p 'elscreen-mode-line-update)
     (setq elscreen-mode-line-string
           (if elscreen-persist-mode
               ;; format is [workspace-index:screen-index]
-              (format "[%d:%d]" elscreen-persist--current-index (elscreen-get-current-screen))
+              (elscreen-persist-get-workspace-string)
             (format "[%d]" (elscreen-get-current-screen))))
     (force-mode-line-update)))
 
 (advice-add 'elscreen-mode-line-update
             :override
-            #'elscreen-persist-elscreen-mode-line-update-override-hook-func)
+            #'elscreen-persist-elscreen-mode-line-update-override-ad-func)
 
 ;; to remove advice
-;; (advice-remove 'elscreen-mode-line-update
-;;                #'elscreen-persist-elscreen-mode-line-update-override-hook-func)
+;; (advice-remove 'elscreen-mode-line-update #'elscreen-persist-elscreen-mode-line-update-override-ad-func)
 
 (defun elscreen-persist-kill-workspace ()
   "Delete current workspace. If there is only one workspace, do nothing."
@@ -394,20 +408,54 @@ Just add the index of the current workspace to the original string."
                        (1+ elscreen-persist--current-index))))
       ;; first, switch to the adjacent workspace before actually deleting workspace.
       ;; (message "DEBUG: len(workspaces)=%d" (length elscreen-persist--workspaces))
-      ;; (message "DEBUG: current workspace is %d" elscreen-persist--current-index)
+      ;; (message "DEBUG: current workspace is %d" elscreen-persist--cursrent-index)
       ;; (message "DEBUG: switching to workspace, index=%d" temp-index)
       (elscreen-persist-switch-to-nth-workspace temp-index)
       ;; then, delete target workspace
       ;; (message "DEBUG: deleting workspace index=%d" target-index)
       (setq elscreen-persist--workspaces (elscreen-persist-remove-nth
-                                         target-index
-                                         elscreen-persist--workspaces))
+                                          target-index
+                                          elscreen-persist--workspaces))
+      (setq elscreen-persist--workspace-names (elscreen-persist-remove-nth
+                                               target-index
+                                               elscreen-persist--workspace-names))
       ;; update current index
       (when (= elscreen-persist--current-index (length elscreen-persist--workspaces))
         ;; when the last one in workspaces was deleted
         (cl-decf elscreen-persist--current-index))
       ;; (message "DEBUG: len(workspaces)=%d" (length elscreen-persist--workspaces))
       ))))
+
+(defun elscreen-persist-get-workspace-name ()
+  "Return nil if the name of current workspace is nil or empty
+string. Otherwise, return current name."
+  (let ((name (nth elscreen-persist--current-index elscreen-persist--workspace-names)))
+    (when (and name
+               (> (length name) 0))
+      name)))
+
+(defun elscreen-persist-set-workspace-name (name)
+  "Set the name of current workspace to NAME."
+  (unless elscreen-persist--workspace-names
+    ;; init
+    (setq elscreen-persist--workspace-names
+          (make-list (length elscreen-persist--workspaces) "")))
+  (setf (nth elscreen-persist--current-index elscreen-persist--workspace-names)
+        name))
+
+(defun elscreen-persist-name-workspace (name)
+  "Name or rename current workspace. For resetting purpose, NAME
+may be empty."
+  (interactive (list (read-from-minibuffer
+                      (if (elscreen-persist-get-workspace-name)
+                          ;; rename
+                          "Rename to : "
+                        (format "Name for workspace %d: "
+                                elscreen-persist--current-index)))))
+  ;; (message "DEBUG: name=|%s|" name)
+  (elscreen-persist-set-workspace-name name)
+  (message (format "New name is %s" (if (zerop (length name)) "empty" name))))
+
 
 (defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
 
@@ -476,7 +524,8 @@ Just add the index of the current workspace to the original string."
   "Function for debugging purpose."
   (interactive)
   (setq elscreen-persist--workspaces nil
-        elscreen-persist--current-index 0))
+        elscreen-persist--current-index 0
+        elscreen-persist--workspace-names nil))
 
 ;;;###autoload
 (define-minor-mode elscreen-persist-mode
