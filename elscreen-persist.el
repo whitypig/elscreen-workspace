@@ -459,43 +459,40 @@ may be empty."
 
 (defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
 
+(defun elscreen-persist--get-buffer-info-for-worksapce (workspace)
+  "Return a list of buffer info in workspace WORKSPACE. Buffer
+info is also a list corresponding to one screen."
+  (mapcar (lambda (elt) (nth 4 elt))
+          (sort (copy-sequence
+                 (elscreen-persist--get-workspace-window-configuration workspace))
+                (lambda (x y) (< (car x) (car y))))))
+
+(defun elscreen-persist--get-buffer-names-for-workspace (workspace)
+  "Return a list of lists of buffers names in workspace WORKSPACE."
+  (mapcar (lambda (scr)
+            (cl-remove-duplicates (mapcar (lambda (e) (nth 1 e))
+                                          scr)
+                                  :test #'string=))
+          (elscreen-persist--get-buffer-info-for-worksapce ws)))
+
+(defun elscreen-persist--get-workspace-window-configuration (workspace)
+  (car (assoc-default 'screen-to-window-configuration-alist ws)))
+
 (defun elscreen-persist-get-helm-candidates ()
-  (cl-loop initially (elscreen-persist-update-current-workspace)
-           for ws in (mapcar
-                      (lambda (e) (nth 1 e))
-                      (mapcar (lambda (elt)
-                                ;; elt represents each workspace
-                                ;; 1th element is window cofiguration
-                                (nth 1 elt))
-                              elscreen-persist--workspaces))
+  ;; update has to be done here, not in helm :init slot neither in
+  ;; cl-loop initially clause.
+  (elscreen-persist-update-current-workspace)
+  (cl-loop for ws in elscreen-persist--workspaces
+           for buf-names = (elscreen-persist--get-buffer-names-for-workspace ws)
            for ix from 0
            collect (cons
-                    ;; collecting (display-string . index)
-                    (concat
-                     (format "%d: " ix)
-                     (mapconcat
-                      #'identity
-                      (mapcar (lambda (lst)
-                                ;; lst correspond to one screen in this ws
-                                (mapconcat
-                                 ;; "name1 + name2" if there is more
-                                 ;; than one buffer in one screen
-                                 #'identity
-                                 (cl-remove-duplicates
-                                  ;; remove same names in one screen
-                                  (mapcar (lambda (blist)
-                                            ;; 1th elt is buffer name
-                                            (nth 1 blist))
-                                          ;; 4th elt is a list of buffers
-                                          (nth 4 lst))
-                                  :test #'string=
-                                  :from-end t)
-                                 " + "))
-                              (sort (copy-sequence ws)
-                                    ;; sort by screen-number
-                                    (lambda (a b)
-                                      (< (car a) (car b)))))
-                      " | "))
+                    (concat (format "%d: " ix)
+                            (mapconcat #'identity
+                                       (mapcar
+                                        (lambda (lst)
+                                          (mapconcat #'identity lst " + "))
+                                        buf-names)
+                                       " | "))
                     ix)))
 
 (defun elscreen-persist-switch-workspace-through-helm ()
@@ -505,7 +502,6 @@ may be empty."
                    (helm
                     :buffer elscreen-persist-helm-buffer-name
                     :sources (helm-build-sync-source "helm-elscreen-persist--workspaces"
-                               :init #'elscreen-persist-update-current-workspace
                                :candidates (elscreen-persist-get-helm-candidates)
                                :migemo t
                                :volatile t)
