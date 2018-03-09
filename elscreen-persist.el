@@ -463,14 +463,17 @@ may be empty."
   "Return a list of buffer info in workspace WORKSPACE. Buffer
 info is also a list corresponding to one screen."
   (mapcar (lambda (elt) (nth 4 elt))
+          ;; buffer info is 4th element in window configuration
           (sort (copy-sequence
                  (elscreen-persist--get-workspace-window-configuration workspace))
+                ;; sort by screen number
                 (lambda (x y) (< (car x) (car y))))))
 
 (defun elscreen-persist--get-buffer-names-for-workspace (workspace)
   "Return a list of lists of buffers names in workspace WORKSPACE."
   (mapcar (lambda (scr)
             (cl-remove-duplicates (mapcar (lambda (e) (nth 1 e))
+                                          ;; buffer name is 1st element
                                           scr)
                                   :test #'string=))
           (elscreen-persist--get-buffer-info-for-worksapce ws)))
