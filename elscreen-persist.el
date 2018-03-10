@@ -132,9 +132,13 @@
      ((null elscreen-persist--workspaces)
       ;; no workspce in workspace list, so start a new workspace
       (setq elscreen-persist--workspaces (list ws))
-      (setq elscreen-persist--current-index 0))
+      (setq elscreen-persist--current-index 0)
+      ;; when elscreen-persist--workspaces is nil,
+      ;; elscreen-persist--workspace-names also must be nil workspace
+      (assert (null elscreen-persist--workspace-names))
+      (setq elscreen-persist--workspace-names '("")))
      ((>= elscreen-persist--current-index (length elscreen-persist--workspaces))
-      ;; another workspace has been just created
+      ;; another workspace has been just created, so appened new one.
       (setcdr (last elscreen-persist--workspaces) (list ws))
       ;; use empty string as default name
       (setcdr (last elscreen-persist--workspace-names) (list "")))
@@ -494,7 +498,7 @@ info is also a list corresponding to one screen."
   (car (assoc-default 'screen-to-window-configuration-alist ws)))
 
 (defun elscreen-persist-get-helm-candidates ()
-  ;; update has to be done here, not in helm :init slot neither in
+  ;; update has to be done here, neither in helm :init slot nor in
   ;; cl-loop initially clause.
   (elscreen-persist-update-current-workspace)
   (cl-loop for ws in elscreen-persist--workspaces
