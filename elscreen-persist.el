@@ -47,8 +47,21 @@
   :type 'file
   :group 'elscreen)
 
+;; should we change the group of the following customs to 'elscreen-persist?
 (defcustom elscreen-persist-default-buffer "*scratch*"
   "Default buffer to be visited when a new workspace is created."
+  :type 'string
+  :group 'elscreen)
+
+(defcustom elscreen-persist-helm-buffer-separator " + "
+  "Used as a separator of buffers in one screen when displaying
+  helm candidates"
+  :type 'string
+  :group 'elscreen)
+
+(defcustom elscreen-persist-helm-screen-separator " | "
+  "Used as a seperator of screens in workspace when displaying
+  helm candidates."
   :type 'string
   :group 'elscreen)
 
@@ -61,6 +74,8 @@
 
 (defvar elscreen-persist--current-index 0
   "Index in `elscreen-persist--workspaces'")
+
+(defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
 
 ;;;###autoload
 (defun elscreen-persist-get-frame-params ()
@@ -456,9 +471,6 @@ may be empty."
   (elscreen-persist-set-workspace-name name)
   (message (format "New name is %s" (if (zerop (length name)) "empty" name))))
 
-
-(defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
-
 (defun elscreen-persist--get-buffer-info-for-worksapce (workspace)
   "Return a list of buffer info in workspace WORKSPACE. Buffer
 info is also a list corresponding to one screen."
@@ -493,9 +505,11 @@ info is also a list corresponding to one screen."
                             (mapconcat #'identity
                                        (mapcar
                                         (lambda (lst)
-                                          (mapconcat #'identity lst " + "))
+                                          (mapconcat
+                                           #'identity lst
+                                           elscreen-persist-helm-buffer-separator))
                                         buf-names)
-                                       " | "))
+                                       elscreen-persist-helm-screen-separator))
                     ix)))
 
 (defun elscreen-persist-switch-workspace-through-helm ()
