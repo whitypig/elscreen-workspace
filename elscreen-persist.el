@@ -69,7 +69,7 @@
 (defvar elscreen-persist--workspaces nil
   "A list of screens. Each screen contains one or more tabs.")
 
-(defvar elscreen-persist--workspace-names nil
+(defvar elscreen-persist--workspace-names '("")
   "A list of workspace names")
 
 (defvar elscreen-persist--current-index 0
@@ -123,7 +123,8 @@
   "Determine the frame parameters, screens, window configurations and nicknames."
   (list (list 'frame-parameters (elscreen-persist-get-frame-params))
         (list 'screen-to-window-configuration-alist (elscreen-persist-get-screens))
-        (list 'screen-to-nickname-alist (elscreen-persist-get-nicknames))))
+        (list 'screen-to-nickname-alist (elscreen-persist-get-nicknames))
+        (list 'workspace-name (elscreen-persist-get-workspace-name))))
 
 (defun elscreen-persist-update-current-workspace ()
   "Update info about current workspace in `elscreen-persist--workspaces'."
@@ -132,11 +133,7 @@
      ((null elscreen-persist--workspaces)
       ;; no workspce in workspace list, so start a new workspace
       (setq elscreen-persist--workspaces (list ws))
-      (setq elscreen-persist--current-index 0)
-      ;; when elscreen-persist--workspaces is nil,
-      ;; elscreen-persist--workspace-names also must be nil workspace
-      (assert (null elscreen-persist--workspace-names))
-      (setq elscreen-persist--workspace-names '("")))
+      (setq elscreen-persist--current-index 0))
      ((>= elscreen-persist--current-index (length elscreen-persist--workspaces))
       ;; another workspace has been just created, so appened new one.
       (setcdr (last elscreen-persist--workspaces) (list ws))
@@ -227,6 +224,7 @@
                   (buffer-string))))
     ;; for now, use 0 as default index
     (setq elscreen-persist--current-index 0)
+    (setq elscreen-persist--workspace-names (elscreen-persist--get-workspace-names))
     ;; then, restore
     (elscreen-persist-set-data (car elscreen-persist--workspaces))))
 
@@ -446,12 +444,9 @@ Just add the index of the current workspace to the original string."
       ))))
 
 (defun elscreen-persist-get-workspace-name ()
-  "Return nil if the name of current workspace is nil or empty
-string. Otherwise, return current name."
-  (let ((name (nth elscreen-persist--current-index elscreen-persist--workspace-names)))
-    (when (and name
-               (> (length name) 0))
-      name)))
+  "Return the name of current workspace or empty string if not set."
+  (or (nth elscreen-persist--current-index elscreen-persist--workspace-names)
+      ""))
 
 (defun elscreen-persist-set-workspace-name (name)
   "Set the name of current workspace to NAME."
@@ -461,6 +456,13 @@ string. Otherwise, return current name."
           (make-list (length elscreen-persist--workspaces) "")))
   (setf (nth elscreen-persist--current-index elscreen-persist--workspace-names)
         name))
+
+(defun elscreen-persist--get-workspace-names ()
+  (cl-loop for ws in elscreen-persist--workspaces
+           collect (elscreen-persist--get-workspace-name-for-workspace ws)))
+
+(defun elscreen-persist--get-workspace-name-for-workspace (workspace)
+  (car (assoc-default 'workspace-name workspace)))
 
 (defun elscreen-persist-name-workspace (name)
   "Name or rename current workspace. For resetting purpose, NAME
@@ -558,8 +560,6 @@ the mode if ARG is omitted or nil."
         (add-hook 'window-setup-hook #'elscreen-persist-restore t))
     (remove-hook 'kill-emacs-hook #'elscreen-persist-store)
     (remove-hook 'window-setup-hook #'elscreen-persist-restore)))
-
-
 
 (provide 'elscreen-persist)
 ;;; elscreen-persist.el ends here
