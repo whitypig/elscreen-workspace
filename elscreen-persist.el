@@ -141,7 +141,8 @@
      ((null elscreen-persist--workspaces)
       ;; no workspce in workspace list, so start a new workspace
       (setq elscreen-persist--workspaces (list ws))
-      (setq elscreen-persist--current-index 0))
+      (setq elscreen-persist--current-index 0)
+      (setq elscreen-persist--workspace-names '("")))
      ((>= elscreen-persist--current-index (length elscreen-persist--workspaces))
       ;; another workspace has been just created, so appened new one.
       (setcdr (last elscreen-persist--workspaces) (list ws))
