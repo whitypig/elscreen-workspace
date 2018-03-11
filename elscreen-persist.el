@@ -342,7 +342,8 @@
     (elscreen-persist-set-data (nth n elscreen-persist--workspaces))
     (setq elscreen-persist--current-index n)
     (when (and (stringp input) (> (length input) 1))
-      ;; goto screen which has a buffer whose name matches INPUT
+      ;; when switching from helm-buffer and input is not empty, goto
+      ;; screen which has a buffer whose name matches that input
       (let* ((screen (sort
                       (cl-remove-if-not
                        (lambda (screen-to-name)
