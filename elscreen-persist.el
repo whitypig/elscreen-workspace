@@ -53,6 +53,14 @@
   :type 'string
   :group 'elscreen)
 
+(defcustom elscreen-persist-workspace-name-limit 10
+  "The upper limit of workspace name. If the length of a
+  workspace name is more than this value, only the first
+  `elscreen-persist-workspace-name-limit' number of characters
+  are displayed."
+  :type 'integer
+  :group 'elscreen)
+
 (defcustom elscreen-persist-helm-buffer-separator " + "
   "Used as a separator of buffers in one screen when displaying
   helm candidates"
@@ -369,12 +377,14 @@
 ;;     (force-mode-line-update)))
 
 (defun elscreen-persist-get-workspace-string ()
+  "Return a string to display in mode-line."
   (cond
    (elscreen-persist-mode
-    (let ((name (elscreen-persist-get-workspace-name)))
-      (if (and (stringp name) (> (length name) 0))
-          (format "[%s:%d]" name (elscreen-get-current-screen))
-        (format "[%d:%d]" elscreen-persist--current-index (elscreen-get-current-screen)))))
+    (format "[%s:%d]"
+            (elscreen-persist-format-workspace-number-or-name
+             elscreen-persist--current-index (elscreen-persist-get-workspace-name))
+            (elscreen-get-current-screen)))
+
    (t
     (format "[%d:%d]" elscreen-persist--current-index (elscreen-get-current-screen)))))
 
@@ -458,10 +468,12 @@ Just add the index of the current workspace to the original string."
         name))
 
 (defun elscreen-persist--get-workspace-names ()
+  "Return a list of workspace names."
   (cl-loop for ws in elscreen-persist--workspaces
            collect (elscreen-persist--get-workspace-name-for-workspace ws)))
 
 (defun elscreen-persist--get-workspace-name-for-workspace (workspace)
+  "Return workspace name for workspace WORKSPACE."
   (car (assoc-default 'workspace-name workspace)))
 
 (defun elscreen-persist-name-workspace (name)
@@ -475,6 +487,8 @@ may be empty."
                                 elscreen-persist--current-index)))))
   ;; (message "DEBUG: name=|%s|" name)
   (elscreen-persist-set-workspace-name name)
+  ;; update workspace
+  (elscreen-persist-update-current-workspace)
   (message (format "New name is %s" (if (zerop (length name)) "empty" name))))
 
 (defun elscreen-persist--get-buffer-info-for-worksapce (workspace)
@@ -499,6 +513,18 @@ info is also a list corresponding to one screen."
 (defun elscreen-persist--get-workspace-window-configuration (workspace)
   (car (assoc-default 'screen-to-window-configuration-alist ws)))
 
+(defun elscreen-persist-format-workspace-number-or-name (ws-index name)
+  (cond
+   ((zerop (length name))
+    (format "%d" ws-index))
+   ((<= (length name) elscreen-persist-workspace-name-limit)
+    (format "%s" name))
+   (t
+    (format "%s"
+            (substring-no-properties name
+                                     0
+                                     elscreen-persist-workspace-name-limit)))))
+
 (defun elscreen-persist-get-helm-candidates ()
   ;; update has to be done here, neither in helm :init slot nor in
   ;; cl-loop initially clause.
@@ -506,16 +532,19 @@ info is also a list corresponding to one screen."
   (cl-loop for ws in elscreen-persist--workspaces
            for buf-names = (elscreen-persist--get-buffer-names-for-workspace ws)
            for ix from 0
+           for ws-name = (elscreen-persist--get-workspace-name-for-workspace ws)
            collect (cons
-                    (concat (format "%d: " ix)
-                            (mapconcat #'identity
-                                       (mapcar
-                                        (lambda (lst)
-                                          (mapconcat
-                                           #'identity lst
-                                           elscreen-persist-helm-buffer-separator))
-                                        buf-names)
-                                       elscreen-persist-helm-screen-separator))
+                    (concat
+                     (elscreen-persist-format-workspace-number-or-name ix ws-name)
+                     ": "
+                     (mapconcat #'identity
+                                (mapcar
+                                 (lambda (lst)
+                                   (mapconcat
+                                    #'identity lst
+                                    elscreen-persist-helm-buffer-separator))
+                                 buf-names)
+                                elscreen-persist-helm-screen-separator))
                     ix)))
 
 (defun elscreen-persist-switch-workspace-through-helm ()
