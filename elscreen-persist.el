@@ -267,6 +267,7 @@
   (elscreen-persist-update-workspace-index delta)
   (elscreen-persist-set-data
    (nth elscreen-persist--current-index elscreen-persist--workspaces))
+  (elscreen-persist-show-workspace-info)
   (elscreen-notify-screen-modification 'force-immediately))
 
 (defun elscreen-persist-goto-next-workspace ()
@@ -367,6 +368,7 @@
         ;; smallest screen number be our destination.
         ;; (message "DEBUG: screen=%s" screen)
         (and screen (elscreen-goto (caar screen)))))
+    (elscreen-persist-show-workspace-info)
     (elscreen-notify-screen-modification 'force-immediately))
    (t
     nil)))
