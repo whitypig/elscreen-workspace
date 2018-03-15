@@ -512,10 +512,10 @@ info is also a list corresponding to one screen."
                                           ;; buffer name is 1st element
                                           scr)
                                   :test #'string=))
-          (elscreen-persist--get-buffer-info-for-worksapce ws)))
+          (elscreen-persist--get-buffer-info-for-worksapce workspace)))
 
 (defun elscreen-persist--get-workspace-window-configuration (workspace)
-  (car (assoc-default 'screen-to-window-configuration-alist ws)))
+  (car (assoc-default 'screen-to-window-configuration-alist workspace)))
 
 (defun elscreen-persist-format-workspace-number-or-name (ws-index name)
   (cond
