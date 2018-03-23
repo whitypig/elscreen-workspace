@@ -74,14 +74,14 @@ information is saved to file, so you won't need to open all these
 buffers the next time you start emacs... unless something not good
 happens :)
 
-Restoring buffers is limited to some basic buffers, so w3m buffers,
+## Some drawbacks
+Buffers to be restored are limited to some basic ones, so w3m buffers,
 for example, won't be restored. Dired buffers ARE resotred with the
 modified versioin of `revive.el` in my repository. If you are
 insterested, give it a try.
 
-## Some drawbacks
-If you try to switch for the first time to a workspace in which there
-are lots of buffers, especially lots of large org-mode buffers,
+Also, if you try to switch for the first time to a workspace in which
+there are lots of buffers, especially lots of large org-mode buffers,
 switching to that workspace takes a bit long time. Just close your
 eyes, breathe deeply 3 times and you'll be happy.
 
@@ -120,6 +120,9 @@ Name the current workspace.
 
 ;; Save state every 30 mins
 (setq my-30min-elscreen-persist-timer (run-with-timer 1800 1800 #'elscreen-persist-store))
+
+;; To cancel the timer above, evaluate the following.
+;; (cancel-timer my-30min-elscreen-persist-timer)
 
 ```
 
