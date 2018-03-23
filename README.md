@@ -110,7 +110,7 @@ your system, give it a shot. It's worth a try.
 ### `#'elscreen-persist-name-workspace`
 Name the current workspace.
 
-### Recommended settings
+## Recommended settings
 ```elisp
 (define-key elscreen-map (kbd "C-o") #'elscreen-persist-open-workspace)
 (define-key elscreen-map (kbd "C-f") #'elscreen-persist-goto-next-workspace)
