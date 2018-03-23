@@ -1,5 +1,6 @@
 ;;; elscreen-persist.el --- persist the elscreen across sessions
 ;; Copyright (C) 2014 Hironori Yoshida
+;;               2018 whitypig <whitypig@gmail.com>
 
 ;; Author: Hironori Yoshida <webmaster@robario.com>
 ;; Keywords: elscreen frames

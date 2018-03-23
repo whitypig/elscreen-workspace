@@ -62,11 +62,10 @@ elscreen-persist, you can create as many workspaces as you want, and
 switch between them with real ease.
 
 ## Workspace
-By the way, Workspace here means a group of screens. Each Workspace
-has an index starting from 0. Also, you can give each of them a
-name. These information is saved to file (`elscreen-persist-file`),
-the next time you start emacs, all the workspaces and buffers are
-restored.
+Workspace here means a group of screens. Each workspace has an index
+starting from 0. Also, you can give each of them a name. These
+information is saved to file (`elscreen-persist-file`), so the next
+time you start emacs, all the workspaces are restored.
 
 Imagine. Create a workspace and name it project1, open lots of
 project1 buffers there, then create another workspace, name it
@@ -77,23 +76,23 @@ happens :)
 
 Restoring buffers is limited to some basic buffers, so w3m buffers,
 for example, won't be restored. Dired buffers ARE resotred with the
-modified versioin of revive.el in my repository. If you are
+modified versioin of `revive.el` in my repository. If you are
 insterested, give it a try.
 
 ## Some drawbacks
-Note also that if you try to switch for the first time to a workspace
-in which there are lots of buffers, especially lots of large org-mode
-buffers, switching to that workspace takes a bit long time. Just close
-your eyes, breathe deeply 3 times and you'll be happy.
+If you try to switch for the first time to a workspace in which there
+are lots of buffers, especially lots of large org-mode buffers,
+switching to that workspace takes a bit long time. Just close your
+eyes, breathe deeply 3 times and you'll be happy.
 
 If `elscreen-display-screen-number` defined in `elscreen.el` is set to
 `t` (default), then workspace number, or name if available, is also
-displayed.
+displayed in mode line.
 
 ## Commands
 ### `#'elscreen-persist-open-workspace`
 Create and move to a new workspace. Default name for new workspaces is
-""(empty).
+"" (empty).
 
 ### `#'elscreen-persist-goto-next-workspace`
 Move to the next workspace.
@@ -119,6 +118,7 @@ Name the current workspace.
 (define-key elscreen-map (kbd "C-d") #'elscreen-persist-kill-workspace)
 (define-key elscreen-map (kbd "C-z") #'elscreen-persist-switch-workspace-through-helm))
 
+;; Save state every 30 mins
 (setq my-30min-elscreen-persist-timer (run-with-timer 1800 1800 #'elscreen-persist-store))
 
 ```
