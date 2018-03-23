@@ -52,3 +52,75 @@ disk (the desktop-file and the elscreen-file) and you want to save files anywher
 (setq desktop-files-not-to-save "")
 (setq desktop-restore-frames nil)
 ```
+
+# Workspace capability
+## Elscreen
+Elscreen is great. But the number of screens you can create is limited
+to 10 or so, and even if it weren't, I couldn't handle all the tabs in
+one frame with limited width. With this forked version of
+elscreen-persist, you can create as many workspaces as you want, and
+switch between them with real ease.
+
+## Workspace
+By the way, Workspace here means a group of screens. Each Workspace
+has an index starting from 0. Also, you can give each of them a
+name. These information is saved to file (`elscreen-persist-file`),
+the next time you start emacs, all the workspaces and buffers are
+restored.
+
+Imagine. Create a workspace and name it project1, open lots of
+project1 buffers there, then create another workspace, name it
+project2, open lots of project2 buffers, and so on. All these
+information is saved to file, so you won't need to open all these
+buffers the next time you start emacs... unless something not good
+happens :)
+
+Restoring buffers is limited to some basic buffers, so w3m buffers,
+for example, won't be restored. Dired buffers ARE resotred with the
+modified versioin of revive.el in my repository. If you are
+insterested, give it a try.
+
+## Some drawbacks
+Note also that if you try to switch for the first time to a workspace
+in which there are lots of buffers, especially lots of large org-mode
+buffers, switching to that workspace takes a bit long time. Just close
+your eyes, breathe deeply 3 times and you'll be happy.
+
+If `elscreen-display-screen-number` defined in `elscreen.el` is set to
+`t` (default), then workspace number, or name if available, is also
+displayed.
+
+## Commands
+### `#'elscreen-persist-open-workspace`
+Create and move to a new workspace. Default name for new workspaces is
+""(empty).
+
+### `#'elscreen-persist-goto-next-workspace`
+Move to the next workspace.
+
+### `#'elscreen-persist-goto-previous-workspace`
+Move to the previous workspace.
+
+### `#'elscreen-persist-kill-workspace`
+Kill current workspace. Buffers in there won't be killed.
+
+### `#'elscreen-persist-switch-workspace-through-helm`
+Helm interface to move around workspaces. If helm isn't installed in
+your system, give it a shot. It's worth a try.
+
+### `#'elscreen-persist-name-workspace`
+Name the current workspace.
+
+### Recommended settings
+```elisp
+(define-key elscreen-map (kbd "C-o") #'elscreen-persist-open-workspace)
+(define-key elscreen-map (kbd "C-f") #'elscreen-persist-goto-next-workspace)
+(define-key elscreen-map (kbd "C-b") #'elscreen-persist-goto-previous-workspace)
+(define-key elscreen-map (kbd "C-d") #'elscreen-persist-kill-workspace)
+(define-key elscreen-map (kbd "C-z") #'elscreen-persist-switch-workspace-through-helm))
+
+(setq my-30min-elscreen-persist-timer (run-with-timer 1800 1800 #'elscreen-persist-store))
+
+```
+
+Any ideas and issue reports will be appreciated.
