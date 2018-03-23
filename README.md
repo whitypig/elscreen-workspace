@@ -1,36 +1,36 @@
-usage
-=====
+# Usage
+This elisp makes configurations of elscreen tabs persistent across
+emacs sessions by saving window configurations to a file and reading
+in those configurations from the file when emacs starts up.
 
-This makes elscreen persistent.
+To enable this extension, load the file in the way whatever you like
+and turn on elscreen-persist-mode by `M-x elscreen-persist-mode`, or
+add the following line somewhere in your init file.
+```elisp
+(require 'elscreen-persist)
+(elscreen-persist-mode 1)
+```
 
-To use this, use customize to turn on `elscreen-persist-mode`
-or add the following line somewhere in your init file:
+## Save and restore manually
+To save current configurations, do `M-x elscreen-persist-store`. To
+restore configurations from file, do `M-x elscreen-persist-restore`.
 
-    (elscreen-persist-mode 1)
+## Using `elscreen-persist.el` with `desktop.el`
+`elscreen-persist` can restore frames by itself, but you can also let
+`desktop.el` restore frames. When `desktop.el` restores frames,
+`elscreen-persist.el` doesn't restore any frame. This case occurs when
+`desktop.el` is enabled and variable `desktop-restore-frames` is set
+`t`(default), but this will make little difference, so choose
+whichever you like.
 
-Or manually, use `elscreen-persist-store` to store,
-and use `elscreen-persist-restore` to restore.
-
-work with desktop
-=================
-
-You can use `desktop` to restore frames.
-
-When `desktop` restored frames, `elscreen-persist` doesn't restore any frame.
-The behavior occurs when `desktop` is enabled and `desktop-restore-frames` is `t`(default).
-
-`elscreen-persist` restores all buffers, so `desktop` doesn't have to save the buffers.
-
-    (setq desktop-files-not-to-save "")
-
-work with desktop using "desktop-globals-to-save"
-=================================================
-
-You can use `desktop` like explained above (it is more simple and quick to setup). Or you
-can use it like explained here (a little bit more setup) to use it in conjunction with
+## Working with desktop using "desktop-globals-to-save"
+You can use `desktop` like explained above (it is simpler and quicker
+to setup). Or you can use it like explained here (a little bit more
+settings needed.) to use it in conjunction with
 e.g. [bookmark](http://www.emacswiki.org/emacs/BookmarkPlus#toc7) or
-[desktop+](https://github.com/ffevotte/desktop-plus). So you dont want to get two files on
-disk (the desktop-file and the elscreen-file) and you want to save files anywhere on disc.
+[desktop+](https://github.com/ffevotte/desktop-plus). So you don't
+want to get two files on disk (the desktop-file and the elscreen-file)
+and you want to save files anywhere on disc.
 
 ```elisp
 (defcustom desktop-data-elscreen nil nil
