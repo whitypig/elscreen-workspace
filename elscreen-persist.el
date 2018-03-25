@@ -269,6 +269,7 @@
   (elscreen-persist-set-data
    (nth elscreen-persist--current-index elscreen-persist--workspaces))
   (elscreen-persist-show-workspace-info)
+  (redisplay)
   (elscreen-notify-screen-modification 'force-immediately))
 
 (defun elscreen-persist-goto-next-workspace ()
@@ -370,6 +371,7 @@
         ;; (message "DEBUG: screen=%s" screen)
         (and screen (elscreen-goto (caar screen)))))
     (elscreen-persist-show-workspace-info)
+    (redisplay)
     (elscreen-notify-screen-modification 'force-immediately))
    (t
     nil)))
