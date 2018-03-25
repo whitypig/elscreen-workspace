@@ -532,6 +532,11 @@ info is also a list corresponding to one screen."
                                      0
                                      elscreen-persist-workspace-name-limit)))))
 
+(defun elscreen-persist-format-current-workspace-number-or-name ()
+  (elscreen-persist-format-workspace-number-or-name
+   elscreen-persist--current-index
+   (elscreen-persist-get-workspace-name)))
+
 (defun elscreen-persist-get-helm-candidates ()
   ;; update has to be done here, neither in helm :init slot nor in
   ;; cl-loop initially clause.
@@ -564,7 +569,9 @@ info is also a list corresponding to one screen."
                                :candidates (elscreen-persist-get-helm-candidates)
                                :migemo t
                                :volatile t)
-                    :preselect (format "^%d:" elscreen-persist--current-index)))))
+                    :preselect
+                    (format "^%s:"
+                            (elscreen-persist-format-current-workspace-number-or-name))))))
     ;; (when helm-alive-p
     ;;   (message "DEBUG: helm is alive")
     ;;   (helm-keyboard-quit))
