@@ -2,7 +2,8 @@
 ;; Copyright (C) 2014 Hironori Yoshida
 ;;               2018 whitypig <whitypig@gmail.com>
 
-;; Author: Hironori Yoshida <webmaster@robario.com>
+;; Authors: Hironori Yoshida <webmaster@robario.com>
+;;          whitypig <whitypig@gmail.com>
 ;; Keywords: elscreen frames
 ;; Version: 0.3.0
 ;; Package-Requires: ((elscreen "1.4.6") (revive "2.19"))
