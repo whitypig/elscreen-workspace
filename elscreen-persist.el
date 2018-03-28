@@ -29,7 +29,7 @@
 ;;
 ;;     (elscreen-persist-mode 1)
 ;;
-;; Or manually, use `elscreen-persist-store` to store,
+;; Or manually, use `elscreen-persist-save` to store,
 ;; and use `elscreen-persist-restore` to restore.
 ;;
 ;; Or manually, use `elscreen-persist-get-data` to get data to store,
@@ -42,6 +42,7 @@
 (require 'cl-lib)
 (require 'elscreen)
 (require 'revive)
+(require 'eieio)
 
 (defcustom elscreen-persist-file (locate-user-emacs-file "elscreen")
   "The file where the elscreen configuration is stored."
@@ -86,14 +87,101 @@
 
 (defvar elscreen-persist-helm-buffer-name "*helm elscreen workspaces*")
 
+(defclass elscreen-workspace ()
+  ((name
+    :initarg :name :initform ""
+    :type string
+    :documentation
+    "The name of this workspace")
+
+   (frame-parameters
+    :initarg :frame-parameters :initform (elscreen-persist-get-frame-parameters)
+    :type list
+    :documentation
+    "Frame parameters")
+
+   (screen-configurations
+    :initarg :screen-configurations :initform (elscreen-persist-get-screens)
+    :type list
+    :documentation
+    ;; screen-number height width list-of-window-positions list-of-buffers-in-this-screen
+    ;; (
+    ;;   (3 95 51 ((0 0 98 50)) ((nil "*info*<2>" 2644 1300)))
+    ;; ...
+    ;; )
+    "List of screen and window configurations.
+
+The first element in this list is the screen's configuration whose
+screen number is largest of all. The last one is the current screen's
+configuration.
+
+Each element in this list is also a list that represents one screen
+and its window configuration in the form of (screen-number window-configuration).")
+
+   (nicknames
+    :initarg :nicknames :initform (elscreen-persist-get-nicknames)
+    :type list
+    :documentation
+    "List of nicknames for screens. The first element is a name for screen 0, the second one is for screen 1, and so on.")
+
+   (theme
+    :initarg :theme :initform nil
+    :type list
+    :documentation
+    "Theme which is applied to this workspace. Not implemented though."))
+  "A class which represents elscreen workspace.")
+
+(defmethod elscreen-workspace--update ((ws elscreen-workspace))
+  "Update workspace by actually collecting information on the current configuration."
+  (setf (slot-value ws 'name) (elscreen-persist-get-workspace-name))
+  (setf (slot-value ws 'frame-parameters) (elscreen-persist-get-frame-parameters))
+  (setf (slot-value ws 'screen-configurations) (elscreen-persist-get-screens))
+  (setf (slot-value ws 'nicknames) (elscreen-persist-get-nicknames))
+  (setf (slot-value ws 'theme) (elscreen-persist-get-theme))
+  ws)
+
+(defmethod elscreen-workspace--get-name ((ws elscreen-workspace))
+  (slot-value ws 'name))
+
+(defmethod elscreen-workspace--get-frame-parameters ((ws elscreen-workspace))
+  (slot-value ws 'frame-parameters))
+
+(defmethod elscreen-workspace--get-screen-configurations ((ws elscreen-workspace))
+  (slot-value ws 'screen-configurations))
+
+(defmethod elscreen-workspace--get-nicknames ((ws elscreen-workspace))
+  (slot-value ws 'nicknames))
+
+(defmethod elscreen-workspace--get-screen-configurations ((ws elscreen-workspace))
+  (slot-value ws 'screen-configurations))
+
+(defmethod elscreen-workspace--set-name ((ws elscreen-workspace) name)
+  (setf (slot-value ws 'name) name))
+
+(defmethod elscreen-workspace--get-buffers ((ws elscreen-workspace))
+  "Return a list of buffers that are in workspace WS."
+  (mapcar (lambda (elt) (nth 4 elt))
+          ;; buffer info is 4th element in slot screen-configurations
+          (sort (copy-sequence
+                 (elscreen-workspace--get-screen-configurations ws))
+                ;; sort by screen number
+                (lambda (x y) (< (car x) (car y))))))
+
+(defmethod elscreen-persist--get-theme ((ws elscreen-workspace))
+  (slot-value ws 'theme))
+
 ;;;###autoload
-(defun elscreen-persist-get-frame-params ()
+(defun elscreen-persist-get-frame-parameters ()
   "Determine the frame parameters."
   (let ((frame-parameters (frame-parameters)))
     ;; Delete some unserializable frame parameter.
     (dolist (key '(buffer-list buried-buffer-list minibuffer))
       (delq (assq key frame-parameters) frame-parameters))
     frame-parameters))
+
+;;;###autoload
+(defun elscreen-persist-get-theme ()
+  nil)
 
 ;;;###autoload
 (defun elscreen-persist-get-screens ()
@@ -127,33 +215,19 @@
                     (list (elscreen-get-screen-nickname screen)))))
     screen-to-nickname-alist))
 
-;;;###autoload
-(defun elscreen-persist-get-data ()
-  "Determine the frame parameters, screens, window configurations and nicknames."
-  (list (list 'frame-parameters (elscreen-persist-get-frame-params))
-        (list 'screen-to-window-configuration-alist (elscreen-persist-get-screens))
-        (list 'screen-to-nickname-alist (elscreen-persist-get-nicknames))
-        (list 'workspace-name (elscreen-persist-get-workspace-name))))
-
 (defun elscreen-persist-update-current-workspace ()
-  "Update info about current workspace in `elscreen-persist--workspaces'."
-  (let ((ws (elscreen-persist-get-data)))
-    (cond
-     ((null elscreen-persist--workspaces)
-      ;; no workspce in workspace list, so start a new workspace
-      (setq elscreen-persist--workspaces (list ws))
-      (setq elscreen-persist--current-index 0)
-      (setq elscreen-persist--workspace-names '("")))
-     ((>= elscreen-persist--current-index (length elscreen-persist--workspaces))
-      ;; another workspace has been just created, so appened new one.
-      (setcdr (last elscreen-persist--workspaces) (list ws))
-      ;; use empty string as default name
-      (setcdr (last elscreen-persist--workspace-names) (list "")))
-     (t
-      ;; update current workspace data
-      (setf (nth elscreen-persist--current-index elscreen-persist--workspaces) ws)))))
+  "Update and return current workspace."
+  (if (null elscreen-persist--workspaces)
+      ;; If there is no workspace, we create a new one
+      (setq elscreen-persist--current-index 0
+            elscreen-persist--workspaces (list (elscreen-workspace)))
+    (elscreen-workspace--update
+     (nth elscreen-persist--current-index elscreen-persist--workspaces))))
 
-(defun elscreen-persist-store ()
+(defun elscreen-persist-get-current-workspace ()
+  (nth elscreen-persist--current-index elscreen-persist--workspaces))
+
+(defun elscreen-persist-save ()
   "Store the screens, window configurations, nicknames and frame parameters."
   (interactive)
   ;; update current workspace info
@@ -167,7 +241,7 @@
       (insert (prin1-to-string elscreen-persist--workspaces)))))
 
 ;;;###autoload
-(defun elscreen-persist-set-frame-params (data)
+(defun elscreen-persist-set-frame-parameters (data)
   "Set the frame parameters if necessary."
   (unless (and (boundp 'desktop-restore-frames) desktop-restore-frames
                (fboundp 'desktop-full-lock-name) (file-exists-p (desktop-full-lock-name)))
@@ -215,17 +289,16 @@
         (elscreen-set-screen-nickname screen nickname)))))
 
 ;;;###autoload
-(defun elscreen-persist-set-data (data)
+(defun elscreen-persist-restore-workspace (workspace)
   "Set the frame parameters, screens, window configurations and nicknames."
-  (elscreen-persist-set-frame-params (car (assoc-default 'frame-parameters data)))
-  ;; (message "DEBUG: calling elsper-set-screens")
-  (elscreen-persist-set-screens (car (assoc-default 'screen-to-window-configuration-alist data)))
-  ;; (message "DEBUG: got back from elsper-set-screens")
-  (elscreen-persist-set-nicknames (car (assoc-default 'screen-to-nickname-alist data))))
+  (elscreen-persist-set-frame-parameters (elscreen-workspace--get-frame-parameters workspace))
+  (elscreen-persist-set-screens (elscreen-workspace--get-screen-configurations workspace))
+  (elscreen-persist-set-nicknames (elscreen-workspace--get-nicknames workspace)))
 
 ;;;###autoload
 (defun elscreen-persist-restore ()
-  "Restore the screens, window configurations, nicknames, and also the frame parameters if necessary."
+  "Read saved information from `elscreen-persist-file' and
+restore workspaces."
   (interactive)
   (when (file-exists-p elscreen-persist-file)
     (setq elscreen-persist--workspaces
@@ -234,9 +307,8 @@
                   (buffer-string))))
     ;; for now, use 0 as default index
     (setq elscreen-persist--current-index 0)
-    (setq elscreen-persist--workspace-names (elscreen-persist--get-workspace-names))
-    ;; then, restore
-    (elscreen-persist-set-data (car elscreen-persist--workspaces))))
+    ;; then, restore workspace
+    (elscreen-persist-restore-workspace (car elscreen-persist--workspaces))))
 
 (defun elscreen-persist-workspace-single-p ()
   (= 1 (length elscreen-persist--workspaces)))
@@ -254,20 +326,9 @@
   ;;          (if (> delta 0) "next" "previsou") (buffer-name))
   ;; save current workspace info into memory
   (elscreen-persist-update-current-workspace)
-  ;; killing unnecessary tabs is executed in elscreen-persist-set-data.
-  ;; (elscreen-persist-kill-all-tabs)
-
-  ;; debug
-  ;; (cl-loop for winconf in (assoc 'screen-to-window-configuration-alist
-  ;;                                (nth elscreen-persist--current-index
-  ;;                                     elscreen-persist--workspaces))
-  ;;          initially do (message "DEBUG: before switching")
-  ;;          do (cl-loop for screen in winconf
-  ;;                      do (message "DEBUG: screen=%s" (prin1-to-string screen))))
   ;; update index
   (elscreen-persist-update-workspace-index delta)
-  (elscreen-persist-set-data
-   (nth elscreen-persist--current-index elscreen-persist--workspaces))
+  (elscreen-persist-restore-workspace (elscreen-persist-get-current-workspace))
   (elscreen-persist-show-workspace-info)
   (redisplay)
   (elscreen-notify-screen-modification 'force-immediately))
@@ -277,7 +338,7 @@
   (interactive);
   ;; (message "DEBUG: goto next ws from index=%d" elscreen-persist--current-index)
   (if (elscreen-persist-workspace-single-p)
-      (elscreen-message "You should have at least two groups of screens to move around!")
+      (elscreen-message "You should have at least two workspaces to move around!")
     (elscreen-persist-switch-workspace-by-delta 1))
   ;; (message "DEBUG: current workspace, index=%d" elscreen-persist--current-index)
   )
@@ -311,17 +372,17 @@
   ;; save current workspace
   (elscreen-persist-update-current-workspace)
   ;; safety first, let us save workspaces to file
-  (elscreen-persist-store)
+  (elscreen-persist-save)
   ;; then, kill all the screens in the current workspace
   (elscreen-persist-kill-all-tabs)
-  ;; move to scratch buffer as if we are starting a new session
+  ;; move to default buffer as if we are starting a new session
   (switch-to-buffer (get-buffer-create elscreen-persist-default-buffer))
   (setq elscreen-persist--current-index (length elscreen-persist--workspaces))
-  (elscreen-persist-update-current-workspace)
+  ;; append new workspace object to elscreen-persist--workspaces
+  (setcdr (last elscreen-persist--workspaces) (list (elscreen-workspace)))
   (elscreen-notify-screen-modification 'force-immediately)
   (when (>= elscreen-persist--current-index (length elscreen-persist--workspaces))
-    (error "elscreen-persist-create-workspace(), index is invalid"))
-  )
+    (error "elscreen-persist-create-workspace(), index is invalid")))
 
 (defun elscreen-persist-remove-nth (n lst)
   "Remove Nth element in list LST and return a new list."
@@ -342,7 +403,8 @@
    ((and (not (= n elscreen-persist--current-index))
          (>= n 0)
          (< n (length elscreen-persist--workspaces)))
-    (elscreen-persist-set-data (nth n elscreen-persist--workspaces))
+    (elscreen-workspace--update (elscreen-persist-get-current-workspace))
+    (elscreen-persist-restore-workspace (nth n elscreen-persist--workspaces))
     (setq elscreen-persist--current-index n)
     (when (and (stringp input) (> (length input) 1))
       ;; when switching from helm-buffer and input is not empty, goto
@@ -382,16 +444,15 @@
 ;;     (setq elscreen-mode-line-string
 ;;           (format "[%d]" (elscreen-get-current-screen)))
 ;;     (force-mode-line-update)))
-
 (defun elscreen-persist-get-workspace-string ()
   "Return a string to display in mode-line."
   (cond
    (elscreen-persist-mode
     (format "[%s:%d]"
             (elscreen-persist-format-workspace-number-or-name
-             elscreen-persist--current-index (elscreen-persist-get-workspace-name))
+             elscreen-persist--current-index
+             (elscreen-persist-get-workspace-name))
             (elscreen-get-current-screen)))
-
    (t
     (format "[%d:%d]" elscreen-persist--current-index (elscreen-get-current-screen)))))
 
@@ -445,14 +506,11 @@ Just add the index of the current workspace to the original string."
       ;; (message "DEBUG: current workspace is %d" elscreen-persist--cursrent-index)
       ;; (message "DEBUG: switching to workspace, index=%d" temp-index)
       (elscreen-persist-switch-to-nth-workspace temp-index)
-      ;; then, delete target workspace
+      ;; then, delete target workspace from elscreen-persist--workspaces
       ;; (message "DEBUG: deleting workspace index=%d" target-index)
       (setq elscreen-persist--workspaces (elscreen-persist-remove-nth
                                           target-index
                                           elscreen-persist--workspaces))
-      (setq elscreen-persist--workspace-names (elscreen-persist-remove-nth
-                                               target-index
-                                               elscreen-persist--workspace-names))
       ;; update current index
       (when (= elscreen-persist--current-index (length elscreen-persist--workspaces))
         ;; when the last one in workspaces was deleted
@@ -460,28 +518,19 @@ Just add the index of the current workspace to the original string."
       ;; (message "DEBUG: len(workspaces)=%d" (length elscreen-persist--workspaces))
       ))))
 
-(defun elscreen-persist-get-workspace-name ()
-  "Return the name of current workspace or empty string if not set."
-  (or (nth elscreen-persist--current-index elscreen-persist--workspace-names)
-      ""))
+(defun elscreen-persist-get-workspace-name (&optional ws)
+  "Return the name of the current workspace or workspace WS if ws is non nil."
+  (elscreen-workspace--get-name (or ws
+                                    (elscreen-persist-get-current-workspace))))
 
-(defun elscreen-persist-set-workspace-name (name)
+(defun elscreen-persist-rename-workspace (name)
   "Set the name of current workspace to NAME."
-  (unless elscreen-persist--workspace-names
-    ;; init
-    (setq elscreen-persist--workspace-names
-          (make-list (length elscreen-persist--workspaces) "")))
-  (setf (nth elscreen-persist--current-index elscreen-persist--workspace-names)
-        name))
+  (setf (slot-value (elscreen-persist-get-current-workspace) 'name) name))
 
 (defun elscreen-persist--get-workspace-names ()
   "Return a list of workspace names."
-  (cl-loop for ws in elscreen-persist--workspaces
-           collect (elscreen-persist--get-workspace-name-for-workspace ws)))
-
-(defun elscreen-persist--get-workspace-name-for-workspace (workspace)
-  "Return workspace name for workspace WORKSPACE."
-  (car (assoc-default 'workspace-name workspace)))
+  (mapcar (lambda (ws) (slot-value ws 'name))
+          elscreen-persist--workspaces))
 
 (defun elscreen-persist-name-workspace (name)
   "Name or rename current workspace. For resetting purpose, NAME
@@ -493,20 +542,10 @@ may be empty."
                         (format "Name for workspace %d: "
                                 elscreen-persist--current-index)))))
   ;; (message "DEBUG: name=|%s|" name)
-  (elscreen-persist-set-workspace-name name)
+  (elscreen-persist-rename-workspace name)
   ;; update workspace
   (elscreen-persist-update-current-workspace)
   (message (format "New name is %s" (if (zerop (length name)) "empty" name))))
-
-(defun elscreen-persist--get-buffer-info-for-worksapce (workspace)
-  "Return a list of buffer info in workspace WORKSPACE. Buffer
-info is also a list corresponding to one screen."
-  (mapcar (lambda (elt) (nth 4 elt))
-          ;; buffer info is 4th element in window configuration
-          (sort (copy-sequence
-                 (elscreen-persist--get-workspace-window-configuration workspace))
-                ;; sort by screen number
-                (lambda (x y) (< (car x) (car y))))))
 
 (defun elscreen-persist--get-buffer-names-for-workspace (workspace)
   "Return a list of lists of buffers names in workspace WORKSPACE."
@@ -515,15 +554,12 @@ info is also a list corresponding to one screen."
                                           ;; buffer name is 1st element
                                           scr)
                                   :test #'string=))
-          (elscreen-persist--get-buffer-info-for-worksapce workspace)))
+          (elscreen-workspace--get-buffers workspace)))
 
-(defun elscreen-persist--get-workspace-window-configuration (workspace)
-  (car (assoc-default 'screen-to-window-configuration-alist workspace)))
-
-(defun elscreen-persist-format-workspace-number-or-name (ws-index name)
+(defun elscreen-persist-format-workspace-number-or-name (ix name)
   (cond
    ((zerop (length name))
-    (format "%d" ws-index))
+    (format "%d" ix))
    ((<= (length name) elscreen-persist-workspace-name-limit)
     (format "%s" name))
    (t
@@ -532,6 +568,11 @@ info is also a list corresponding to one screen."
                                      0
                                      elscreen-persist-workspace-name-limit)))))
 
+(defun elscreen-persist-format-current-workspace-number-or-name ()
+  (elscreen-persist-format-workspace-number-or-name
+   elscreen-persist--current-index
+   (elscreen-persist-get-workspace-name)))
+
 (defun elscreen-persist-get-helm-candidates ()
   ;; update has to be done here, neither in helm :init slot nor in
   ;; cl-loop initially clause.
@@ -539,7 +580,7 @@ info is also a list corresponding to one screen."
   (cl-loop for ws in elscreen-persist--workspaces
            for buf-names = (elscreen-persist--get-buffer-names-for-workspace ws)
            for ix from 0
-           for ws-name = (elscreen-persist--get-workspace-name-for-workspace ws)
+           for ws-name = (elscreen-persist-get-workspace-name ws)
            collect (cons
                     (concat
                      (elscreen-persist-format-workspace-number-or-name ix ws-name)
@@ -564,7 +605,9 @@ info is also a list corresponding to one screen."
                                :candidates (elscreen-persist-get-helm-candidates)
                                :migemo t
                                :volatile t)
-                    :preselect (format "^%d:" elscreen-persist--current-index)))))
+                    :preselect
+                    (format "^%s:"
+                            (elscreen-persist-format-current-workspace-number-or-name))))))
     ;; (when helm-alive-p
     ;;   (message "DEBUG: helm is alive")
     ;;   (helm-keyboard-quit))
@@ -592,9 +635,9 @@ the mode if ARG is omitted or nil."
   :global t
   (if elscreen-persist-mode
       (progn
-        (add-hook 'kill-emacs-hook #'elscreen-persist-store t)
+        (add-hook 'kill-emacs-hook #'elscreen-persist-save t)
         (add-hook 'window-setup-hook #'elscreen-persist-restore t))
-    (remove-hook 'kill-emacs-hook #'elscreen-persist-store)
+    (remove-hook 'kill-emacs-hook #'elscreen-persist-save)
     (remove-hook 'window-setup-hook #'elscreen-persist-restore)))
 
 (provide 'elscreen-persist)
