@@ -153,9 +153,6 @@ and its window configuration in the form of (screen-number window-configuration)
 (defmethod elscreen-workspace--get-nicknames ((ws elscreen-workspace))
   (slot-value ws 'nicknames))
 
-(defmethod elscreen-workspace--get-screen-configurations ((ws elscreen-workspace))
-  (slot-value ws 'screen-configurations))
-
 (defmethod elscreen-workspace--set-name ((ws elscreen-workspace) name)
   (setf (slot-value ws 'name) name))
 
@@ -168,7 +165,7 @@ and its window configuration in the form of (screen-number window-configuration)
                 ;; sort by screen number
                 (lambda (x y) (< (car x) (car y))))))
 
-(defmethod elscreen-persist--get-theme ((ws elscreen-workspace))
+(defmethod elscreen-workspace--get-theme ((ws elscreen-workspace))
   (slot-value ws 'theme))
 
 ;;;###autoload
@@ -279,7 +276,8 @@ and its window configuration in the form of (screen-number window-configuration)
       (elscreen-goto (car screen-to-window-configuration))
       ;; (message "DEBUG: then, restoring, window=%s, buffer=%s" (selected-window) (buffer-name (window-buffer)))
       ;; (message "DEBUG: restoring conf=%s" (cdr screen-to-window-configuration))
-      (restore-window-configuration (cdr screen-to-window-configuration)))))
+      (restore-window-configuration (cdr screen-to-window-configuration))
+      (elscreen-notify-screen-modification 'force-immediately))))
 
 ;;;###autoload
 (defun elscreen-persist-set-nicknames (data)
