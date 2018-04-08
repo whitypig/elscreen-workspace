@@ -3,7 +3,7 @@
 ;;               2018 whitypig <whitypig@gmail.com>
 
 ;; Authors: Hironori Yoshida <webmaster@robario.com>
-;;          whitypig <whitypig@gmail.com>
+;;          whitypig         <whitypig@gmail.com>
 ;; Keywords: elscreen frames
 ;; Version: 0.3.0
 ;; Package-Requires: ((elscreen "1.4.6") (revive "2.19"))
@@ -607,13 +607,6 @@ may be empty."
                     :preselect
                     (format "^%s:"
                             (elscreen-persist-format-current-workspace-number-or-name))))))
-    ;; (when helm-alive-p
-    ;;   (message "DEBUG: helm is alive")
-    ;;   (helm-keyboard-quit))
-    ;; (when (window-minibuffer-p (selected-window))
-    ;;   (delete-window (selected-window)))
-    ;; (when (stringp helm-input)
-    ;;   (message "DEBUG: helm-input=%s" helm-input))
     (when (numberp choice)
       (elscreen-persist-switch-to-nth-workspace choice helm-input))))
 
