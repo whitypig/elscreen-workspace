@@ -276,8 +276,8 @@ and its window configuration in the form of (screen-number window-configuration)
       (elscreen-goto (car screen-to-window-configuration))
       ;; (message "DEBUG: then, restoring, window=%s, buffer=%s" (selected-window) (buffer-name (window-buffer)))
       ;; (message "DEBUG: restoring conf=%s" (cdr screen-to-window-configuration))
-      (restore-window-configuration (cdr screen-to-window-configuration))
-      (elscreen-notify-screen-modification 'force-immediately))))
+      (restore-window-configuration (cdr screen-to-window-configuration))))
+  (elscreen-notify-screen-modification 'force-immediately))
 
 ;;;###autoload
 (defun elscreen-persist-set-nicknames (data)
@@ -499,7 +499,7 @@ Just add the index of the current workspace to the original string."
           (temp-index (if (= elscreen-persist--current-index
                              (1- (length elscreen-persist--workspaces)))
                           (1- elscreen-persist--current-index)
-                       (1+ elscreen-persist--current-index))))
+                        (1+ elscreen-persist--current-index))))
       ;; first, switch to the adjacent workspace before actually deleting workspace.
       ;; (message "DEBUG: len(workspaces)=%d" (length elscreen-persist--workspaces))
       ;; (message "DEBUG: current workspace is %d" elscreen-persist--cursrent-index)
