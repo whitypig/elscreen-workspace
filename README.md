@@ -97,7 +97,7 @@ insterested, give it a try.
 
 Secondly, if you try to switch for the first time to a workspace in
 which there are lots of buffers, switching to that workspace takes a
-bit long time. This is because emacs is tryinng to open all of buffers
+bit long time. This is because emacs is trying to open all of buffers
 in that workspace. Just close your eyes, breathe deeply 3 times and
 you'll be happy.
 
