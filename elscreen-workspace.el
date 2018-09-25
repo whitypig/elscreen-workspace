@@ -168,28 +168,6 @@ configuration in the form of (screen-number window-configuration).")
 (defun elscreen-workspace-get-theme ()
   nil)
 
-;;;###autoload
-;; (defun elscreen-workspace-get-screens ()
-;;   "Determine the screens, window configurations."
-;;   (let ((current-screen (elscreen-get-current-screen))
-;;         (screen-to-window-configuration-alist nil))
-;;     ;; Collect all the screen and window configurations.
-;;     ;; - The first element is a last (max screen number) screen configuration.
-;;     ;; - The last element is a current screen configuration.
-;;     (dolist (screen (sort (elscreen-get-screen-list) '<))
-;;       (elscreen-goto screen)
-;;       (let ((screen-to-window-configuration
-;;              (list (cons
-;;                     screen
-;;                     (current-window-configuration-printable)))))
-;;         (setq screen-to-window-configuration-alist
-;;               (if (eq screen current-screen)
-;;                   (append screen-to-window-configuration-alist screen-to-window-configuration)
-;;                 (append screen-to-window-configuration screen-to-window-configuration-alist)))))
-;;     ;; Go back to the original screen
-;;     (elscreen-goto current-screen)
-;;     screen-to-window-configuration-alist))
-
 (defun elscreen-workspace-get-screens ()
   "Return a list of window configurations for all screens in current workspace."
   (let ((current-screen (elscreen-get-current-screen)))
@@ -200,17 +178,6 @@ configuration in the form of (screen-number window-configuration).")
                    (sort (elscreen-get-screen-list) #'<))
       ;; Go back to current screen.
       (elscreen-goto current-screen))))
-
-;; ;;;###autoload
-;; (defun elscreen-workspace-get-nicknames ()
-;;   "Return a list of nicknames for screens in current workspace."
-;;   (let ((screen-to-nickname-alist nil))
-;;     ;; Collect all the nicknames.
-;;     (dolist (screen (sort (elscreen-get-screen-list) '<))
-;;       (setq screen-to-nickname-alist
-;;             (append screen-to-nickname-alist
-;;                     (list (elscreen-get-screen-nickname screen)))))
-;;     screen-to-nickname-alist))
 
 ;;;###autoload
 (defun elscreen-workspace-get-nicknames ()
@@ -264,39 +231,6 @@ configuration in the form of (screen-number window-configuration).")
                (file-exists-p (desktop-full-lock-name)))
     (modify-frame-parameters nil fparams)
     (message "The frame has been restored by `elscreen-workspace'. Using `desktop' is recommended.")))
-
-;; ;;;###autoload
-;; (defun elscreen-workspace-set-screens (data)
-;;   "Set the screens, window configurations."
-;;   ;; Note:
-;;   ;; #'elscreen-kill restores window-configuration with its own
-;;   ;; #'elscreen-apply-window-configuration, so let them first play a
-;;   ;; role. After that, we do our own job. Otherwise, restored window
-;;   ;; configuration will be modified again by elscreen.
-;;   ;; First, create enough number of screens
-;;   ;; (message "DEBUG: creating screens")
-;;   (dolist (screen-to-window-configuration data)
-;;     (while (not (elscreen-screen-live-p (car screen-to-window-configuration)))
-;;       (elscreen-create)))
-;;   ;; then kill uncecessary screens
-;;   ;; (message "DEBUG: killing screens")
-;;   (dolist (screen (elscreen-get-screen-list))
-;;     (unless (assq screen data)
-;;       (elscreen-kill-internal screen)))
-;;   ;; finally, restore window configurtion
-;;   ;; (message "DEBUG: restoring screens")
-;;   (dolist (screen-to-window-configuration data)
-;;     ;; (message "DEBUG: goto %s" (prin1-to-string screen-to-window-configuration))
-;;     (unless (window-minibuffer-p)
-;;       ;; Note: For some reason or other, sometimes we somehow get to
-;;       ;; minibuffer window, and try to delete other window to restore
-;;       ;; window configuration. This raises unpleasant error. So, make
-;;       ;; sure we are NOT in minibuffer widow.
-;;       (elscreen-goto (car screen-to-window-configuration))
-;;       ;; (message "DEBUG: then, restoring, window=%s, buffer=%s" (selected-window) (buffer-name (window-buffer)))
-;;       ;; (message "DEBUG: restoring conf=%s" (cdr screen-to-window-configuration))
-;;       (restore-window-configuration (cdr screen-to-window-configuration))))
-;;   (elscreen-notify-screen-modification 'force-immediately))
 
 ;;;###autoload
 (defun elscreen-workspace-restore-screens (workspace)
