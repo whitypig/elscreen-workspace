@@ -321,14 +321,23 @@ Note that the number of backup-file generations can be configured by
 restore workspaces."
   (interactive)
   (when (file-exists-p elscreen-workspace-file)
-    (setq elscreen-workspace--workspaces
-          (read (with-temp-buffer
-                  (insert-file-contents elscreen-workspace-file)
-                  (buffer-string))))
-    ;; for now, use 0 as default index
-    (setq elscreen-workspace--current-index 0)
-    ;; then, restore workspace
-    (elscreen-workspace-restore-workspace (car elscreen-workspace--workspaces))))
+    (let ((lst (read (with-temp-buffer
+                       (insert-file-contents elscreen-workspace-file)
+                       (buffer-string)))))
+      (cond
+       ((and (listp lst)
+             (not (null lst))
+             (every #'elscreen-workspace-ws-p lst))
+        ;; If read obj is a non-nil list and each elemnt of it is of
+        ;; type elscreen-workspace-ws, then wo go.
+        (setq elscreen-workspace--workspaces lst)
+        ;; for now, use 0 as default index
+        (setq elscreen-workspace--current-index 0)
+        ;; then, restore workspace
+        (elscreen-workspace-restore-workspace (car elscreen-workspace--workspaces)))
+       (t
+        ;; Invalid object having been read.
+        (message "%s is Invalid format" elscreen-workspace-file))))))
 
 (defun elscreen-workspace-workspace-single-p ()
   (= 1 (length elscreen-workspace--workspaces)))
