@@ -58,6 +58,11 @@
   :type 'string
   :group 'elscreen)
 
+(defcustom elscreen-workspace-number-of-backup-generations 5
+  "The number of generations for backup files."
+  :type 'integer
+  :group 'elscreen)
+
 ;;; Variables:
 (defvar elscreen-workspace--workspaces nil
   "A list of workspaces. Each workspace contains one or more screens.")
@@ -209,6 +214,8 @@ configuration in the form of (screen-number window-configuration).")
 (defun elscreen-workspace-save (&optional no-message)
   "Save workspaces into file specified by `elscreen-workspace-file'."
   (interactive)
+  ;; Shift backup file
+  (elscreen-workspace--shift-backup-files)
   ;; First, update current workspace data.
   (elscreen-workspace-update-current-workspace)
   ;; Then, store the configurations into the file.
@@ -221,6 +228,24 @@ configuration in the form of (screen-number window-configuration).")
       (insert (pp elscreen-workspace--workspaces))))
   (unless no-message
     (message (format "Saved current workspaces to %s" elscreen-workspace-file))))
+
+(defun elscreen-workspace--shift-backup-files ()
+  "Copy backup files.
+
+Let's say we have file backup files, elws.bak1, elws.bak2, elws.bak3,
+elws.bak4, elws.bak5.  First, copy elws.bak4 to elws.bak5, then
+elws.bak3 to elws.bak4, and so on.  Finally, copy the newest one, i.e,
+`elscreen-workspace-file' to elws.bak1.
+Note that the number of backup-file generations can be configured by
+`elscreen-workspace-number-of-backup-generations'."
+  (cl-loop for i from (1- elscreen-workspace-number-of-backup-generations) downto 1
+           for from-name = (format "%s.bak%d" elscreen-workspace-file i)
+           for to-name = (format "%s.bak%d" elscreen-workspace-file (1+ i))
+           when (file-exists-p from-name)
+           do (copy-file from-name to-name t)
+           finally (copy-file elscreen-workspace-file
+                              (format "%s.bak1" elscreen-workspace-file)
+                              t)))
 
 ;;;###autoload
 (defun elscreen-workspace-restore-frame-parameters (fparams)
