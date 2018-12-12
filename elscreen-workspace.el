@@ -412,7 +412,7 @@ restore workspaces."
   (elscreen-notify-screen-modification 'force-immediately)
   (message "New workspace is %d/%d"
            elscreen-workspace--current-index
-           (length elscreen-workspace--workspaces))
+           (1- (length elscreen-workspace--workspaces)))
   (when (>= elscreen-workspace--current-index (length elscreen-workspace--workspaces))
     (error "elscreen-workspace-create-workspace(), index is invalid")))
 
