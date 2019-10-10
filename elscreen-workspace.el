@@ -211,6 +211,10 @@ configuration in the form of (screen-number window-configuration).")
    (t
     (nth elscreen-workspace--current-index elscreen-workspace--workspaces))))
 
+(defun elscreen-workspace-get-current-workspace-name ()
+  "Return the name of current workspace."
+  (elscreen-workspace--get-name (elscreen-workspace-get-current-workspace)))
+
 (defun elscreen-workspace-save (&optional no-message)
   "Save workspaces into file specified by `elscreen-workspace-file'."
   (interactive)
@@ -327,7 +331,7 @@ restore workspaces."
       (cond
        ((and (listp lst)
              (not (null lst))
-             (every #'elscreen-workspace-ws-p lst))
+             (cl-every #'elscreen-workspace-ws-p lst))
         ;; If read obj is a non-nil list and each elemnt of it is of
         ;; type elscreen-workspace-ws, then wo go.
         (setq elscreen-workspace--workspaces lst)
@@ -338,6 +342,12 @@ restore workspaces."
        (t
         ;; Invalid object having been read.
         (message "%s is Invalid format" elscreen-workspace-file))))))
+
+(defun elscreen-workspace--restore-from-file (path)
+  ;; for debug
+  (interactive "fFile: ")
+  (let ((elscreen-workspace-file path))
+    (elscreen-workspace-restore)))
 
 (defun elscreen-workspace-workspace-single-p ()
   (= 1 (length elscreen-workspace--workspaces)))
@@ -350,7 +360,7 @@ restore workspaces."
 
 (defun elscreen-workspace-switch-workspace-by-delta (delta)
   "Switch workspace to another one which is DELTA distance away."
-  (assert (not (zerop delta)) t "switching workspace, delta cannot be zero")
+  (cl-assert (not (zerop delta)) t "switching workspace, delta cannot be zero")
   ;; (message "DEBUG: goto %s workspace, current-buffer=%s"
   ;;          (if (> delta 0) "next" "previsou") (buffer-name))
   ;; save current workspace info into memory
@@ -387,7 +397,7 @@ restore workspaces."
   (cl-loop repeat (1- (elscreen-get-number-of-screens))
            ;; actually, we cannot kill all the screens
            do (elscreen-kill))
-  (assert (and (= 1 (elscreen-get-number-of-screens)))))
+  (cl-assert (and (= 1 (elscreen-get-number-of-screens)))))
 
 (defun elscreen-workspace-show-workspace-info ()
   (elscreen-message (format "workspace %d/%d"
@@ -422,6 +432,7 @@ restore workspaces."
 
 (defun elscreen-workspace-helm-mm-migemo-string-match-p (input str)
   "Do `string-match-p' with the help of `helm-mm-migemo-get-pattern'."
+  ;; (message "DEBUG: input=%s, str=%s" input str)
   (cl-loop with pattern = (helm-mm-3-get-patterns-internal input)
            for re in (mapcar (lambda (elt)
                                (helm-mm-migemo-get-pattern (cdr elt)))
@@ -439,36 +450,44 @@ restore workspaces."
     (elscreen-workspace-restore-workspace (nth n elscreen-workspace--workspaces))
     (setq elscreen-workspace--current-index n)
     (when (and (stringp input) (> (length input) 1))
-      ;; when switching from helm-buffer and input is not empty, goto
-      ;; screen which has a buffer whose name matches that input
-      (let* ((screen (sort
-                      (cl-remove-if-not
-                       (lambda (screen-to-name)
-                         (cl-find-if
-                          (lambda (s)
-                            (or (string-match-p input s)
-                                (and (featurep 'helm)
-                                     helm-migemo-mode
-                                     (fboundp 'helm-mm-migemo-get-pattern)
-                                     (elscreen-workspace-helm-mm-migemo-string-match-p
-                                      input s))))
-                          ;; if there is more than one buffer in one
-                          ;; screen, those names are concatenated with
-                          ;; separator being ":".
-                          (split-string (cdr screen-to-name) ":" t)))
-                       ;; each elt is like (screen-number . buffer-name)
-                       (elscreen-get-screen-to-name-alist))
-                      (lambda (scr1 scr2)
-                        (< (car scr1) (car scr2))))))
-        ;; when there is more than one screen matching INPUT, let the
-        ;; smallest screen number be our destination.
-        ;; (message "DEBUG: screen=%s" screen)
-        (and screen (elscreen-goto (caar screen)))))
+      (elscreen-workspace--move-to-matched-screen-maybe input))
     (elscreen-workspace-show-workspace-info)
     (redisplay)
     (elscreen-notify-screen-modification 'force-immediately))
    (t
     nil)))
+
+(defun elscreen-workspace--move-to-matched-screen-maybe (input)
+  (cond
+   ((string= input (elscreen-workspace-get-current-workspace-name))
+    ;; If INPUT exactly matches with workspace name, we assume that a
+    ;; user do not want any buffer switching.
+    nil)
+   (t
+    ;; Go to screen which has a buffer whose name matches INPUT.
+    (let* ((screen (sort
+                    (cl-remove-if-not
+                     (lambda (screen-to-name)
+                       (cl-find-if
+                        (lambda (s)
+                          (or (string-match-p input s)
+                              (and (featurep 'helm)
+                                   helm-migemo-mode
+                                   (fboundp 'helm-mm-migemo-get-pattern)
+                                   (elscreen-workspace-helm-mm-migemo-string-match-p
+                                    input s))))
+                        ;; if there is more than one buffer in one
+                        ;; screen, those names are concatenated with
+                        ;; separator being ":".
+                        (split-string (cdr screen-to-name) ":" t)))
+                     ;; each elt is like (screen-number . buffer-name)
+                     (elscreen-get-screen-to-name-alist))
+                    (lambda (scr1 scr2)
+                      (< (car scr1) (car scr2))))))
+      ;; when there is more than one screen matching INPUT, let the
+      ;; smallest screen number be our destination.
+      ;; (message "DEBUG: screen=%s" screen)
+      (and screen (elscreen-goto (caar screen)))))))
 
 ;; from elscreen.el
 ;; (defun elscreen-mode-line-update ()
@@ -588,16 +607,12 @@ may be empty."
           (elscreen-workspace--get-buffers workspace)))
 
 (defun elscreen-workspace-format-workspace-number-or-name (ix name)
-  (cond
-   ((zerop (length name))
-    (format "%d" ix))
-   ((<= (length name) elscreen-workspace-workspace-name-limit)
-    (format "%s" name))
-   (t
-    (format "%s"
-            (substring-no-properties name
-                                     0
-                                     elscreen-workspace-workspace-name-limit)))))
+  (format "[%d:%s]"
+          ix
+          (substring-no-properties name
+                                   0
+                                   (min (length name)
+                                        elscreen-workspace-workspace-name-limit))))
 
 (defun elscreen-workspace-format-current-workspace-number-or-name ()
   (elscreen-workspace-format-workspace-number-or-name
@@ -629,16 +644,18 @@ may be empty."
 (defun elscreen-workspace-switch-workspace-through-helm ()
   "Switch workspace through helm interface."
   (interactive)
-  (let* ((choice (save-selected-window
-                   (helm
-                    :buffer elscreen-workspace-helm-buffer-name
-                    :sources (helm-build-sync-source "helm-elscreen-workspace--workspaces"
-                               :candidates (elscreen-workspace-get-helm-candidates)
-                               :migemo t
-                               :volatile t)
-                    :preselect
-                    (format "^%s:"
-                            (elscreen-workspace-format-current-workspace-number-or-name))))))
+  (let* ((choice
+          (save-selected-window
+            (helm
+             :buffer elscreen-workspace-helm-buffer-name
+             :sources (helm-build-sync-source "helm-elscreen-workspace--workspaces"
+                        :candidates (elscreen-workspace-get-helm-candidates)
+                        :migemo t
+                        :volatile t)
+             :preselect
+             (format "^%s:"
+                     (regexp-quote
+                      (elscreen-workspace-format-current-workspace-number-or-name)))))))
     (when (numberp choice)
       (elscreen-workspace-switch-to-nth-workspace choice helm-input))))
 
