@@ -218,8 +218,9 @@ configuration in the form of (screen-number window-configuration).")
 (defun elscreen-workspace-save (&optional no-message)
   "Save workspaces into file specified by `elscreen-workspace-file'."
   (interactive)
-  ;; Shift backup file
-  (elscreen-workspace--shift-backup-files)
+  (when (file-exists-p elscreen-workspace-file)
+      ;; Shift backup file
+    (elscreen-workspace--shift-backup-files))
   ;; First, update current workspace data.
   (elscreen-workspace-update-current-workspace)
   ;; Then, store the configurations into the file.
@@ -325,13 +326,47 @@ Note that the number of backup-file generations can be configured by
 restore workspaces."
   (interactive)
   (when (file-exists-p elscreen-workspace-file)
-    (let ((lst (read (with-temp-buffer
-                       (insert-file-contents elscreen-workspace-file)
-                       (buffer-string)))))
+    ;; Should we check if the size of the file is greater than 0?
+    (let* ((s (with-temp-buffer
+                (insert-file-contents elscreen-workspace-file)
+                (buffer-string)))
+           (version (cond
+                     ((string-match-p "^(\\[eieio-class-tag--elscreen-workspace-ws.*" s)
+                        ;; file saved on emacs whose version is <= 25
+                      25)
+                     ((string-match-p "^(#s(elscreen-workspace-ws.*" s)
+                      26)
+                     (t
+                      nil)))
+           (lst nil))
+      (cond
+       ((or (null version) (not (numberp version)))
+        ;; Invalid format
+        nil)
+       ((and (= emacs-major-version 26) (numberp version) (= version 25))
+        ;; Trying to read version 25 file on emacs 26.
+        ;; Replace eieio part with #s sth.
+        (setq lst
+              (read
+               (replace-regexp-in-string
+                "\\[eieio-class-tag--elscreen-workspace-ws\\([^\]]+\\)\\]"
+                "#s(elscreen-workspace-ws\\1)"
+                s))))
+       ((and (= emacs-major-version 25) (= version 26))
+        ;; Trying to read version 26 file on emacs 25, not likely though.
+        (setq lst
+              (read
+               (replace-regexp-in-string
+                "#s(elscreen-workspace-ws\\(.*\\))"
+                "[eieio-class-tag--elscreen-workspace-ws\\1]"
+                s))))
+       (t
+        (setq lst (read s))))
       (cond
        ((and (listp lst)
              (not (null lst))
              (cl-every #'elscreen-workspace-ws-p lst))
+        ;; (message "DEBUG: reading in workspace file done")
         ;; If read obj is a non-nil list and each elemnt of it is of
         ;; type elscreen-workspace-ws, then wo go.
         (setq elscreen-workspace--workspaces lst)
