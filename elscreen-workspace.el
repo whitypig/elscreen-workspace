@@ -349,7 +349,7 @@ restore workspaces."
         (setq lst
               (read
                (replace-regexp-in-string
-                "\\[eieio-class-tag--elscreen-workspace-ws\\([^\]]+\\)\\]"
+                "\\[eieio-class-tag--elscreen-workspace-ws\\([^]]+\\)\\]"
                 "#s(elscreen-workspace-ws\\1)"
                 s))))
        ((and (= emacs-major-version 25) (= version 26))
@@ -644,10 +644,12 @@ may be empty."
 (defun elscreen-workspace-format-workspace-number-or-name (ix name)
   (format "[%d:%s]"
           ix
-          (substring-no-properties name
-                                   0
-                                   (min (length name)
-                                        elscreen-workspace-workspace-name-limit))))
+          name
+          ;; (substring-no-properties name
+          ;;                          0
+          ;;                          (min (length name)
+          ;;                               elscreen-workspace-workspace-name-limit))
+          ))
 
 (defun elscreen-workspace-format-current-workspace-number-or-name ()
   (elscreen-workspace-format-workspace-number-or-name
