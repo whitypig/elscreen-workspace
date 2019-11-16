@@ -1,8 +1,8 @@
 ;;; elscreen-workspace.el --- Switching back and forth a group of elscreen tabs and retaining them across emacs sessions.
 ;; Copyright (C) 2014 Hironori Yoshida
-                 2018, 2019 whitypig <whitypig@gmail.com>
+;;               2018, 2019 whitypig <whitypig@gmail.com>
 ;; Authors: Hironori Yoshida <webmaster@robario.com>
-            whitypig <whitypig@gmail.com>
+;;          whitypig <whitypig@gmail.com>
 ;; Keywords: elscreen frames
 ;; Version: 0.1
 ;; Package-Requires: ((elscreen "1.4.6") (revive "2.19") (eieio) (helm))
